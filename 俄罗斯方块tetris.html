@@ -378,4 +378,33 @@
         initBoard();
     </script>
 </body>
+<!-- 手机触屏方向键 -->
+<style>
+#touchControls {
+  position: fixed;
+  bottom: 20px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  z-index: 9999;
+}
+.touchBtn {
+  width: 70px;
+  height: 70px;
+  font-size: 24px;
+  background: rgba(0,0,0,0.5);
+  color: white;
+  border: none;
+  border-radius: 50%;
+}
+</style>
+
+<div id="touchControls">
+  <button class="touchBtn" onclick="document.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowLeft'}))">←</button>
+  <button class="touchBtn" onclick="document.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowUp'}))">↑</button>
+  <button class="touchBtn" onclick="document.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown'}))">↓</button>
+  <button class="touchBtn" onclick="document.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight'}))">→</button>
+</div>
 </html>
