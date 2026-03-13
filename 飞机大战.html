@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>飞机大战 HD</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{display:flex;justify-content:center;align-items:center;height:100vh;background:#000;font-family:Arial}
+
+#game{
+  position:relative;
+  width:400px;
+  height:600px;
+  background:linear-gradient(to bottom,#050a1a,#0a1025,#000);
+  border:2px solid #0ef;
+  border-radius:6px;
+  overflow:hidden;
+}
+
+/* 玩家飞机 - 高清渐变+发光 */
+#player{
+  position:absolute;
+  width:52px;
+  height:64px;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 52 64'%3E%3Cdefs%3E%3ClinearGradient id='g1' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%230ff'/%3E%3Cstop offset='1' stop-color='%2308f'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath fill='url(%23g1)' d='M26 4 L42 36 L34 36 L34 60 L18 60 L18 36 L10 36 Z'/%3E%3Cpath fill='%23fff' d='M26 12 L22 28 L30 28 Z'/%3E%3C/svg%3E");
+  background-size:contain;
+  background-repeat:no-repeat;
+  background-position:center;
+  left:174px;
+  bottom:20px;
+  filter:drop-shadow(0 0 6px #0ff);
+  pointer-events:none;
+}
+
+/* 子弹 - 激光光束 */
+.bullet{
+  position:absolute;
+  width:3px;
+  height:14px;
+  background:linear-gradient(to top,#ff0,#fc0);
+  border-radius:2px;
+  box-shadow:0 0 6px #ff0;
+}
+
+/* 敌机 - 金属质感 */
+.enemy{
+  position:absolute;
+  width:42px;
+  height:42px;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 42 42'%3E%3ClinearGradient id='g2' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23f44'/%3E%3Cstop offset='1' stop-color='%23c04'/%3E%3C/linearGradient%3E%3Cpath fill='url(%23g2)' d='M21 2 L0 32 L12 40 L30 40 L42 32 Z'/%3E%3C/svg%3E");
+  background-size:contain;
+  background-repeat:no-repeat;
+  background-position:center;
+  filter:drop-shadow(0 0 4px #f44);
+}
+
+/* 爆炸 - 高清火焰 */
+.explode{
+  position:absolute;
+  width:70px;
+  height:70px;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 70 70'%3E%3Ccircle cx='35' cy='35' r='32' fill='%23ff0'/%3E%3Ccircle cx='35' cy='35' r='24' fill='%23f90'/%3E%3Ccircle cx='35' cy='35' r='16' fill='%23f40'/%3E%3Ccircle cx='35' cy='35' r='8' fill='%23f00'/%3E%3C/svg%3E");
+  background-size:cover;
+  animation:boom 0.5s forwards;
+}
+@keyframes boom{0%{transform:scale(.5);opacity:1}50%{transform:scale(1.3)}100%{transform:scale(1.6);opacity:0}}
+
+/* UI */
+#score{position:absolute;top:10px;left:12px;color:#0ff;font-size:20px;font-weight:700;text-shadow:0 0 6px #0ff}
+#over{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff;font-size:28px;font-weight:700;text-align:center;display:none;text-shadow:0 0 10px red}
+#start{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);padding:12px 24px;font-size:22px;background:#0af;color:#000;border:none;border-radius:6px;cursor:pointer;font-weight:700}
+</style>
+</head>
+<body>
+<div id="game">
+  <div id="score">分数:0</div>
+  <div id="player"></div>
+  <div id="over">游戏结束<br>最终分数:<span id="final"></span><br>点击重来</div>
+  <button id="start">开始游戏</button>
+</div>
+
+<script>
+const game=document.getElementById('game')
+const player=document.getElementById('player')
+const scoreTxt=document.getElementById('score')
+const over=document.getElementById('over')
+const final=document.getElementById('final')
+const start=document.getElementById('start')
+
+const gw=400,gh=600
+let score=0,run=false
+let x=174,y=526
+let bullets=[],enemies=[]
+let loop,es,ss
+
+function init(){
+  score=0;scoreTxt.textContent=`分数:${score}`
+  x=174;y=526;player.style.left=x+'px';player.style.top=y+'px'
+  over.style.display='none';start.style.display='none'
+  bullets.forEach(i=>i.remove());enemies.forEach(i=>i.remove())
+  bullets=[];enemies=[];run=true
+  loop=setInterval(update,16)
+  es=setInterval(addEnemy,800)
+  ss=setInterval(fire,300)
+}
+
+// 鼠标控制
+game.addEventListener('mousemove',e=>{
+  if(!run)return
+  const r=game.getBoundingClientRect()
+  x=e.clientX-r.left-26
+  x=Math.max(0,Math.min(gw-52,x))
+  player.style.left=x+'px'
+})
+
+// 发射子弹
+function fire(){
+  if(!run)return
+  const b=document.createElement('div')
+  b.className='bullet'
+  b.style.left=x+24.5+'px'
+  b.style.top=y-14+'px'
+  game.appendChild(b);bullets.push(b)
+}
+
+// 添加敌机
+function addEnemy(){
+  if(!run)return
+  const e=document.createElement('div')
+  e.className='enemy'
+  e.style.left=Math.random()*(gw-42)+'px'
+  e.style.top='-42px'
+  game.appendChild(e);enemies.push(e)
+}
+
+// 爆炸
+function boom(tx,ty){
+  const ex=document.createElement('div')
+  ex.className='explode'
+  ex.style.left=tx-35+'px'
+  ex.style.top=ty-35+'px'
+  game.appendChild(ex)
+  setTimeout(()=>ex.remove(),500)
+}
+
+// 碰撞
+function hit(a,b){
+  const r1=a.getBoundingClientRect()
+  const r2=b.getBoundingClientRect()
+  return !(r1.right<r2.left||r1.left>r2.right||r1.bottom<r2.top||r1.top>r2.bottom)
+}
+
+// 游戏帧更新
+function update(){
+  if(!run)return
+  // 子弹移动
+  bullets.forEach((b,i)=>{
+    let t=parseFloat(b.style.top)
+    if(t<-10){b.remove();bullets.splice(i,1)}
+    else{b.style.top=t-9+'px'}
+  })
+  // 敌机移动
+  enemies.forEach((e,i)=>{
+    let t=parseFloat(e.style.top)
+    if(t>gh){e.remove();enemies.splice(i,1)}
+    else{e.style.top=t+3.5+'px'}
+    // 子弹打敌机
+    bullets.forEach((b,j)=>{
+      if(hit(b,e)){
+        boom(parseFloat(e.style.left)+21,parseFloat(e.style.top)+21)
+        score+=10;scoreTxt.textContent=`分数:${score}`
+        b.remove();bullets.splice(j,1)
+        e.remove();enemies.splice(i,1)
+      }
+    })
+    // 撞玩家
+    if(hit(player,e))gameOver()
+  })
+}
+
+// 结束
+function gameOver(){
+  run=false;clearInterval(loop);clearInterval(es);clearInterval(ss)
+  final.textContent=score;over.style.display='block'
+  boom(x+26,y+32)
+}
+
+start.onclick=init
+over.onclick=init
+</script>
+</body>
+</html>
