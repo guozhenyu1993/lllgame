@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>霸王龙对决汽车侠 - 2D闯关</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+SC:wght@400;700;900&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: 'Orbitron', 'Noto Sans SC', sans-serif;
+            overflow: hidden;
+            color: #fff;
+        }
+        
+        .game-title {
+            font-size: 2.5rem;
+            font-weight: 900;
+            text-align: center;
+            margin: 20px 0;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            background: linear-gradient(45deg, #ff6b35, #f7931e, #ff006e, #8338ec);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 30px rgba(255, 107, 53, 0.5);
+            animation: titlePulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes titlePulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+        }
+        
+        .game-container {
+            position: relative;
+            border: 4px solid transparent;
+            border-image: linear-gradient(45deg, #ff6b35, #8338ec, #ff006e) 1;
+            box-shadow: 0 0 40px rgba(131, 56, 236, 0.3), inset 0 0 40px rgba(0,0,0,0.5);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        #gameCanvas {
+            display: block;
+            background: linear-gradient(to bottom, #0f0c29, #302b63, #24243e);
+        }
+        
+        .ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+        }
+        
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        
+        .health-bar {
+            width: 250px;
+            height: 30px;
+            background: rgba(0,0,0,0.7);
+            border: 2px solid #444;
+            border-radius: 15px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .health-fill {
+            height: 100%;
+            transition: width 0.3s ease;
+            border-radius: 13px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .health-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            animation: shimmer 2s infinite;
+        }
+        
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+        
+        .trex-health .health-fill { background: linear-gradient(90deg, #ff4444, #ff6b35); }
+        .car-health .health-fill { background: linear-gradient(90deg, #4444ff, #00d4ff); }
+        
+        .player-label {
+            font-size: 0.9rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+            text-shadow: 0 0 10px currentColor;
+        }
+        
+        .trex-label { color: #ff6b35; }
+        .car-label { color: #00d4ff; }
+        
+        .score-board {
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: 700;
+            text-shadow: 0 0 20px rgba(255,255,255,0.5);
+        }
+        
+        .controls-hint {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            padding: 15px 30px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.2);
+            font-size: 0.85rem;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+        
+        .control-key {
+            display: inline-block;
+            background: linear-gradient(145deg, #333, #555);
+            padding: 5px 10px;
+            border-radius: 5px;
+            margin: 0 3px;
+            border: 1px solid #777;
+            box-shadow: 0 2px 0 #222;
+            font-weight: 700;
+            color: #fff;
+        }
+        
+        .start-screen, .game-over-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            pointer-events: auto;
+        }
+        
+        .start-btn, .restart-btn {
+            margin-top: 30px;
+            padding: 20px 50px;
+            font-size: 1.5rem;
+            font-weight: 900;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            background: linear-gradient(45deg, #ff6b35, #f7931e);
+            color: white;
+            box-shadow: 0 10px 30px rgba(255, 107, 53, 0.4);
+            transition: all 0.3s;
+            font-family: 'Orbitron', sans-serif;
+        }
+        
+        .start-btn:hover, .restart-btn:hover {
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 0 15px 40px rgba(255, 107, 53, 0.6);
+        }
+        
+        .start-btn:active, .restart-btn:active {
+            transform: translateY(-1px);
+        }
+        
+        .winner-text {
+            font-size: 3rem;
+            font-weight: 900;
+            text-align: center;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            animation: winnerPulse 1s ease-in-out infinite;
+        }
+        
+        @keyframes winnerPulse {
+            0%, 100% { transform: scale(1); text-shadow: 0 0 30px currentColor; }
+            50% { transform: scale(1.1); text-shadow: 0 0 50px currentColor; }
+        }
+        
+        .trex-wins { color: #ff6b35; }
+        .car-wins { color: #00d4ff; }
+        
+        .hidden { display: none !important; }
+        
+        .particle {
+            position: absolute;
+            pointer-events: none;
+            border-radius: 50%;
+        }
+        
+        .level-indicator {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #ffd700;
+            text-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
+        }
+        
+        .combo-text {
+            position: absolute;
+            font-size: 2rem;
+            font-weight: 900;
+            color: #ff006e;
+            text-shadow: 0 0 20px #ff006e;
+            animation: comboFloat 1s ease-out forwards;
+            pointer-events: none;
+        }
+        
+        @keyframes comboFloat {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-100px) scale(1.5); }
+        }
+    </style>
+</head>
+<body>
+    <h1 class="game-title">🔥 霸王龙 VS 汽车侠 🚗</h1>
+    
+    <div class="game-container">
+        <canvas id="gameCanvas" width="1200" height="700"></canvas>
+        
+        <div class="ui-overlay">
+            <div class="level-indicator">关卡 1</div>
+            <div class="top-bar">
+                <div class="player-stats">
+                    <div class="player-label trex-label">霸王龙 (玩家1)</div>
+                    <div class="health-bar trex-health">
+                        <div class="health-fill" id="trexHealth" style="width: 100%"></div>
+                    </div>
+                </div>
+                
+                <div class="score-board">
+                    <div id="timer">60</div>
+                </div>
+                
+                <div class="player-stats" style="text-align: right;">
+                    <div class="player-label car-label">汽车侠 (玩家2/AI)</div>
+                    <div class="health-bar car-health">
+                        <div class="health-fill" id="carHealth" style="width: 100%"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="controls-hint">
+                <span class="control-key">W</span><span class="control-key">A</span><span class="control-key">S</span><span class="control-key">D</span> 移动 | 
+                <span class="control-key">SPACE</span> 喷射火球 | 
+                <span class="control-key">↑</span><span class="control-key">↓</span><span class="control-key">←</span><span class="control-key">→</span> 汽车侠移动 | 
+                <span class="control-key">ENTER</span> 发射激光
+            </div>
+        </div>
+        
+        <div class="start-screen" id="startScreen">
+            <h2 style="font-size: 2rem; margin-bottom: 20px; color: #ffd700;">准备战斗！</h2>
+            <p style="font-size: 1.1rem; color: #aaa; max-width: 600px; text-align: center; line-height: 1.6;">
+                控制霸王龙使用火球攻击，或操控汽车侠用激光反击！<br>
+                摧毁对方血量即可获胜。收集能量球恢复生命！
+            </p>
+            <button class="start-btn" onclick="startGame()">开始游戏</button>
+        </div>
+        
+        <div class="game-over-screen hidden" id="gameOverScreen">
+            <div class="winner-text" id="winnerText">霸王龙获胜！</div>
+            <p id="finalScore" style="font-size: 1.2rem; color: #aaa;"></p>
+            <button class="restart-btn" onclick="restartGame()">再来一局</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // 游戏状态
+        let gameRunning = false;
+        let gameTime = 60;
+        let lastTime = 0;
+        let level = 1;
+        
+        // 粒子系统
+        let particles = [];
+        let projectiles = [];
+        let powerUps = [];
+        
+        // 霸王龙
+        const trex = {
+            x: 150,
+            y: 350,
+            width: 80,
+            height: 100,
+            vx: 0,
+            vy: 0,
+            speed: 5,
+            health: 100,
+            maxHealth: 100,
+            facing: 1, // 1为右，-1为左
+            color: '#ff6b35',
+            fireCooldown: 0,
+            isCharging: false,
+            chargeLevel: 0,
+            animFrame: 0
+        };
+        
+        // 汽车侠
+        const carHero = {
+            x: 1050,
+            y: 350,
+            width: 90,
+            height: 60,
+            vx: 0,
+            vy: 0,
+            speed: 7,
+            health: 100,
+            maxHealth: 100,
+            facing: -1,
+            color: '#00d4ff',
+            laserCooldown: 0,
+            boostEnergy: 100,
+            isBoosting: false,
+            animFrame: 0
+        };
+        
+        // 按键状态
+        const keys = {};
+        
+        // 监听键盘
+        document.addEventListener('keydown', (e) => {
+            keys[e.code] = true;
+            
+            // 霸王龙火球
+            if (e.code === 'Space' && gameRunning && trex.fireCooldown <= 0) {
+                shootFireball();
+                trex.fireCooldown = 15;
+            }
+            
+            // 汽车侠激光
+            if (e.code === 'Enter' && gameRunning && carHero.laserCooldown <= 0) {
+                shootLaser();
+                carHero.laserCooldown = 20;
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            keys[e.code] = false;
+        });
+        
+        // 发射火球
+        function shootFireball() {
+            const chargeBonus = trex.isCharging ? 1.5 : 1;
+            projectiles.push({
+                x: trex.x + (trex.facing === 1 ? trex.width : 0),
+                y: trex.y + trex.height/2,
+                vx: (8 + Math.random() * 4) * trex.facing,
+                vy: (Math.random() - 0.5) * 2,
+                type: 'fireball',
+                damage: 15 * chargeBonus,
+                size: 20 * chargeBonus,
+                life: 100,
+                owner: 'trex'
+            });
+            
+            // 后坐力
+            trex.vx -= trex.facing * 2;
+            
+            // 发射粒子效果
+            for(let i = 0; i < 10; i++) {
+                createParticle(
+                    trex.x + trex.width/2, 
+                    trex.y + trex.height/2,
+                    '#ff6b35',
+                    3 + Math.random() * 3
+                );
+            }
+        }
+        
+        // 发射激光
+        function shootLaser() {
+            projectiles.push({
+                x: carHero.x + (carHero.facing === 1 ? carHero.width : 0),
+                y: carHero.y + carHero.height/2,
+                vx: 12 * carHero.facing,
+                vy: 0,
+                type: 'laser',
+                damage: 12,
+                width: 60,
+                height: 8,
+                life: 80,
+                owner: 'car'
+            });
+            
+            // 激光后坐力
+            carHero.vx -= carHero.facing * 1;
+            
+            // 激光发射效果
+            for(let i = 0; i < 8; i++) {
+                createParticle(
+                    carHero.x + carHero.width/2,
+                    carHero.y + carHero.height/2,
+                    '#00d4ff',
+                    2 + Math.random() * 2
+                );
+            }
+        }
+        
+        // 创建粒子
+        function createParticle(x, y, color, size) {
+            particles.push({
+                x: x,
+                y: y,
+                vx: (Math.random() - 0.5) * 8,
+                vy: (Math.random() - 0.5) * 8,
+                life: 30 + Math.random() * 20,
+                color: color,
+                size: size,
+                decay: 0.95
+            });
+        }
+        
+        // 创建爆炸效果
+        function createExplosion(x, y, color, count = 20) {
+            for(let i = 0; i < count; i++) {
+                const angle = (Math.PI * 2 * i) / count;
+                const speed = 3 + Math.random() * 5;
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    life: 40 + Math.random() * 20,
+                    color: color,
+                    size: 4 + Math.random() * 4,
+                    decay: 0.92
+                });
+            }
+        }
+        
+        // 生成能量球
+        function spawnPowerUp() {
+            if(Math.random() < 0.01 && powerUps.length < 3) {
+                powerUps.push({
+                    x: 200 + Math.random() * 800,
+                    y: 100 + Math.random() * 500,
+                    type: Math.random() > 0.5 ? 'health' : 'energy',
+                    size: 25,
+                    floatOffset: Math.random() * Math.PI * 2
+                });
+            }
+        }
+        
+        // 更新游戏逻辑
+        function update() {
+            if(!gameRunning) return;
+            
+            // 霸王龙控制 (WASD)
+            trex.vx *= 0.85;
+            trex.vy *= 0.85;
+            
+            if(keys['KeyW']) trex.vy = -trex.speed;
+            if(keys['KeyS']) trex.vy = trex.speed;
+            if(keys['KeyA']) { trex.vx = -trex.speed; trex.facing = -1; }
+            if(keys['KeyD']) { trex.vx = trex.speed; trex.facing = 1; }
+            
+            // 蓄力检测
+            trex.isCharging = keys['Space'] && trex.fireCooldown > 0;
+            if(trex.isCharging) {
+                trex.chargeLevel = Math.min(trex.chargeLevel + 1, 30);
+            } else {
+                trex.chargeLevel = Math.max(trex.chargeLevel - 2, 0);
+            }
+            
+            // 汽车侠控制 (方向键) 或 AI
+            carHero.vx *= 0.9;
+            carHero.vy *= 0.9;
+            
+            // 简单AI：如果玩家2不控制，AI自动行动
+            const useAI = !keys['ArrowUp'] && !keys['ArrowDown'] && !keys['ArrowLeft'] && !keys['ArrowRight'];
+            
+            if(useAI) {
+                // AI行为
+                const dx = trex.x - carHero.x;
+                const dy = trex.y - carHero.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                
+                if(dist > 300) {
+                    // 靠近玩家
+                    carHero.vx += (dx / dist) * 0.5;
+                    carHero.vy += (dy / dist) * 0.5;
+                } else if(dist < 150) {
+                    // 远离玩家
+                    carHero.vx -= (dx / dist) * 0.8;
+                    carHero.vy -= (dy / dist) * 0.8;
+                }
+                
+                // AI射击
+                if(dist < 400 && Math.abs(dy) < 100 && carHero.laserCooldown <= 0) {
+                    if(Math.random() < 0.05) {
+                        shootLaser();
+                        carHero.laserCooldown = 25;
+                    }
+                }
+                
+                carHero.facing = dx > 0 ? 1 : -1;
+            } else {
+                // 玩家2控制
+                if(keys['ArrowUp']) carHero.vy = -carHero.speed;
+                if(keys['ArrowDown']) carHero.vy = carHero.speed;
+                if(keys['ArrowLeft']) { carHero.vx = -carHero.speed; carHero.facing = -1; }
+                if(keys['ArrowRight']) { carHero.vx = carHero.speed; carHero.facing = 1; }
+            }
+            
+            // 应用速度
+            trex.x += trex.vx;
+            trex.y += trex.vy;
+            carHero.x += carHero.vx;
+            carHero.y += carHero.vy;
+            
+            // 边界限制
+            trex.x = Math.max(0, Math.min(canvas.width - trex.width, trex.x));
+            trex.y = Math.max(0, Math.min(canvas.height - trex.height, trex.y));
+            carHero.x = Math.max(0, Math.min(canvas.width - carHero.width, carHero.x));
+            carHero.y = Math.max(0, Math.min(canvas.height - carHero.height, carHero.y));
+            
+            // 冷却更新
+            if(trex.fireCooldown > 0) trex.fireCooldown--;
+            if(carHero.laserCooldown > 0) carHero.laserCooldown--;
+            
+            // 动画帧
+            trex.animFrame += 0.2;
+            carHero.animFrame += 0.3;
+            
+            // 更新投射物
+            for(let i = projectiles.length - 1; i >= 0; i--) {
+                const p = projectiles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life--;
+                
+                // 拖尾效果
+                if(Math.random() > 0.5) {
+                    createParticle(p.x, p.y, p.type === 'fireball' ? '#ff6b35' : '#00d4ff', 2);
+                }
+                
+                // 碰撞检测
+                let hit = false;
+                if(p.owner === 'trex') {
+                    // 检测击中汽车侠
+                    if(p.x > carHero.x && p.x < carHero.x + carHero.width &&
+                       p.y > carHero.y && p.y < carHero.y + carHero.height) {
+                        carHero.health -= p.damage;
+                        hit = true;
+                        createExplosion(p.x, p.y, '#00d4ff', 15);
+                        showCombo(carHero.x, carHero.y, `-${Math.floor(p.damage)}`);
+                    }
+                } else {
+                    // 检测击中霸王龙
+                    if(p.x > trex.x && p.x < trex.x + trex.width &&
+                       p.y > trex.y && p.y < trex.y + trex.height) {
+                        trex.health -= p.damage;
+                        hit = true;
+                        createExplosion(p.x, p.y, '#ff6b35', 15);
+                        showCombo(trex.x, trex.y, `-${Math.floor(p.damage)}`);
+                    }
+                }
+                
+                if(hit || p.life <= 0 || p.x < 0 || p.x > canvas.width || p.y < 0 || p.y > canvas.height) {
+                    projectiles.splice(i, 1);
+                }
+            }
+            
+            // 更新能量球
+            spawnPowerUp();
+            for(let i = powerUps.length - 1; i >= 0; i--) {
+                const pu = powerUps[i];
+                pu.floatOffset += 0.05;
+                
+                // 碰撞检测
+                const checkCollision = (player) => {
+                    const cx = pu.x;
+                    const cy = pu.y + Math.sin(pu.floatOffset) * 10;
+                    return (player.x < cx + pu.size && player.x + player.width > cx - pu.size &&
+                            player.y < cy + pu.size && player.y + player.height > cy - pu.size);
+                };
+                
+                if(checkCollision(trex)) {
+                    if(pu.type === 'health') trex.health = Math.min(trex.maxHealth, trex.health + 20);
+                    else trex.fireCooldown = Math.max(0, trex.fireCooldown - 30);
+                    createExplosion(pu.x, pu.y, '#ffd700', 20);
+                    powerUps.splice(i, 1);
+                } else if(checkCollision(carHero)) {
+                    if(pu.type === 'health') carHero.health = Math.min(carHero.maxHealth, carHero.health + 20);
+                    else carHero.laserCooldown = Math.max(0, carHero.laserCooldown - 20);
+                    createExplosion(pu.x, pu.y, '#ffd700', 20);
+                    powerUps.splice(i, 1);
+                }
+            }
+            
+            // 更新粒子
+            for(let i = particles.length - 1; i >= 0; i--) {
+                const pt = particles[i];
+                pt.x += pt.vx;
+                pt.y += pt.vy;
+                pt.vx *= pt.decay;
+                pt.vy *= pt.decay;
+                pt.life--;
+                pt.size *= 0.95;
+                
+                if(pt.life <= 0 || pt.size < 0.5) {
+                    particles.splice(i, 1);
+                }
+            }
+            
+            // 更新UI
+            document.getElementById('trexHealth').style.width = Math.max(0, trex.health) + '%';
+            document.getElementById('carHealth').style.width = Math.max(0, carHero.health) + '%';
+            
+            // 检查游戏结束
+            if(trex.health <= 0 || carHero.health <= 0 || gameTime <= 0) {
+                endGame();
+            }
+        }
+        
+        // 显示伤害数字
+        function showCombo(x, y, text) {
+            const el = document.createElement('div');
+            el.className = 'combo-text';
+            el.textContent = text;
+            el.style.left = x + 'px';
+            el.style.top = y + 'px';
+            document.querySelector('.game-container').appendChild(el);
+            setTimeout(() => el.remove(), 1000);
+        }
+        
+        // 绘制函数
+        function draw() {
+            // 清空画布
+            ctx.fillStyle = 'rgba(15, 12, 41, 0.3)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 绘制背景网格
+            ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+            ctx.lineWidth = 1;
+            for(let i = 0; i < canvas.width; i += 50) {
+                ctx.beginPath();
+                ctx.moveTo(i, 0);
+                ctx.lineTo(i, canvas.height);
+                ctx.stroke();
+            }
+            for(let i = 0; i < canvas.height; i += 50) {
+                ctx.beginPath();
+                ctx.moveTo(0, i);
+                ctx.lineTo(canvas.width, i);
+                ctx.stroke();
+            }
+            
+            // 绘制能量球
+            powerUps.forEach(pu => {
+                const floatY = Math.sin(pu.floatOffset) * 10;
+                const cx = pu.x;
+                const cy = pu.y + floatY;
+                
+                // 光晕
+                const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, pu.size * 2);
+                gradient.addColorStop(0, pu.type === 'health' ? 'rgba(255,0,100,0.3)' : 'rgba(0,255,255,0.3)');
+                gradient.addColorStop(1, 'transparent');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(cx, cy, pu.size * 2, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 核心
+                ctx.fillStyle = pu.type === 'health' ? '#ff006e' : '#00d4ff';
+                ctx.beginPath();
+                ctx.arc(cx, cy, pu.size, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 图标
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 20px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(pu.type === 'health' ? '+' : '⚡', cx, cy);
+            });
+            
+            // 绘制霸王龙
+            ctx.save();
+            ctx.translate(trex.x + trex.width/2, trex.y + trex.height/2);
+            if(trex.facing === -1) ctx.scale(-1, 1);
+            
+            // 身体阴影
+            ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            ctx.beginPath();
+            ctx.ellipse(0, trex.height/2 - 10, trex.width/2, 15, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 身体
+            ctx.fillStyle = '#2d5016';
+            ctx.fillRect(-30, -30, 60, 70);
+            
+            // 头部
+            ctx.fillStyle = '#3a6b1f';
+            ctx.beginPath();
+            ctx.moveTo(20, -40);
+            ctx.lineTo(50, -30);
+            ctx.lineTo(45, -10);
+            ctx.lineTo(20, -15);
+            ctx.closePath();
+            ctx.fill();
+            
+            // 眼睛
+            ctx.fillStyle = '#ff4444';
+            ctx.beginPath();
+            ctx.arc(35, -30, 5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = 'white';
+            ctx.beginPath();
+            ctx.arc(37, -32, 2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 嘴巴（蓄力时会张开）
+            const mouthOpen = trex.isCharging ? 10 + trex.chargeLevel/3 : 5;
+            ctx.fillStyle = '#1a3009';
+            ctx.beginPath();
+            ctx.moveTo(20, -15);
+            ctx.lineTo(45 + mouthOpen, -5);
+            ctx.lineTo(40, 5);
+            ctx.lineTo(20, 0);
+            ctx.closePath();
+            ctx.fill();
+            
+            // 牙齿
+            ctx.fillStyle = 'white';
+            for(let i = 0; i < 4; i++) {
+                ctx.beginPath();
+                ctx.moveTo(25 + i * 8, -12);
+                ctx.lineTo(28 + i * 8, -5);
+                ctx.lineTo(31 + i * 8, -12);
+                ctx.fill();
+            }
+            
+            // 尾巴（动画）
+            ctx.fillStyle = '#2d5016';
+            ctx.beginPath();
+            ctx.moveTo(-30, 20);
+            ctx.lineTo(-50 - Math.sin(trex.animFrame) * 10, 10 + Math.cos(trex.animFrame) * 5);
+            ctx.lineTo(-60 - Math.sin(trex.animFrame) * 15, 30 + Math.cos(trex.animFrame) * 8);
+            ctx.lineTo(-30, 40);
+            ctx.closePath();
+            ctx.fill();
+            
+            // 腿部（行走动画）
+            ctx.fillStyle = '#1a3009';
+            const legOffset = Math.sin(trex.animFrame * 2) * 10;
+            ctx.fillRect(-20, 30, 15, 30 + legOffset);
+            ctx.fillRect(5, 30, 15, 30 - legOffset);
+            
+            // 手臂
+            ctx.fillStyle = '#3a6b1f';
+            ctx.fillRect(10, 0, 8, 20);
+            
+            // 蓄力效果
+            if(trex.chargeLevel > 0) {
+                ctx.strokeStyle = `rgba(255, 107, 53, ${trex.chargeLevel/30})`;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(0, 0, 50 + trex.chargeLevel, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+            
+            ctx.restore();
+            
+            // 绘制汽车侠
+            ctx.save();
+            ctx.translate(carHero.x + carHero.width/2, carHero.y + carHero.height/2);
+            if(carHero.facing === -1) ctx.scale(-1, 1);
+            
+            // 阴影
+            ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            ctx.beginPath();
+            ctx.ellipse(0, carHero.height/2 - 5, carHero.width/2, 12, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 车身主体
+            const carGradient = ctx.createLinearGradient(-40, -20, 40, 20);
+            carGradient.addColorStop(0, '#0066cc');
+            carGradient.addColorStop(0.5, '#00d4ff');
+            carGradient.addColorStop(1, '#0066cc');
+            ctx.fillStyle = carGradient;
+            
+            // 流线型车身
+            ctx.beginPath();
+            ctx.moveTo(-45, 15);
+            ctx.lineTo(-40, -10);
+            ctx.lineTo(-20, -25);
+            ctx.lineTo(30, -25);
+            ctx.lineTo(45, -5);
+            ctx.lineTo(45, 15);
+            ctx.closePath();
+            ctx.fill();
+            
+            // 车窗
+            ctx.fillStyle = '#111';
+            ctx.beginPath();
+            ctx.moveTo(-15, -20);
+            ctx.lineTo(25, -20);
+            ctx.lineTo(35, -8);
+            ctx.lineTo(-10, -8);
+            ctx.closePath();
+            ctx.fill();
+            
+            // 眼睛（挡风玻璃上的AI眼睛）
+            ctx.fillStyle = '#00ffff';
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#00ffff';
+            ctx.beginPath();
+            ctx.arc(10, -15, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            
+            // 车轮（旋转动画）
+            ctx.fillStyle = '#222';
+            const wheelRot = carHero.animFrame * 2;
+            [-25, 25].forEach(wx => {
+                ctx.save();
+                ctx.translate(wx, 15);
+                ctx.rotate(wheelRot);
+                ctx.beginPath();
+                ctx.arc(0, 0, 12, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#444';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(-12, 0);
+                ctx.lineTo(12, 0);
+                ctx.moveTo(0, -12);
+                ctx.lineTo(0, 12);
+                ctx.stroke();
+                ctx.restore();
+            });
+            
+            // 尾翼
+            ctx.fillStyle = '#004499';
+            ctx.fillRect(-45, -30, 8, 20);
+            
+            // 激光炮
+            ctx.fillStyle = '#silver';
+            ctx.fillRect(35, -5, 15, 8);
+            
+            // 推进器火焰（移动时）
+            if(Math.abs(carHero.vx) > 1 || Math.abs(carHero.vy) > 1) {
+                ctx.fillStyle = '#ff6b35';
+                ctx.beginPath();
+                ctx.moveTo(-45, 5);
+                ctx.lineTo(-55 - Math.random() * 15, 0);
+                ctx.lineTo(-45, -5);
+                ctx.fill();
+            }
+            
+            // 护盾（满血时）
+            if(carHero.health > 80) {
+                ctx.strokeStyle = 'rgba(0, 212, 255, 0.3)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(0, 0, 50, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+            
+            ctx.restore();
+            
+            // 绘制投射物
+            projectiles.forEach(p => {
+                if(p.type === 'fireball') {
+                    // 火球
+                    const gradient = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size);
+                    gradient.addColorStop(0, 'white');
+                    gradient.addColorStop(0.2, '#ffeb3b');
+                    gradient.addColorStop(0.5, '#ff6b35');
+                    gradient.addColorStop(1, 'transparent');
+                    ctx.fillStyle = gradient;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // 火焰核心
+                    ctx.fillStyle = '#ff4444';
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size/3, 0, Math.PI * 2);
+                    ctx.fill();
+                } else {
+                    // 激光
+                    ctx.save();
+                    ctx.translate(p.x, p.y);
+                    
+                    // 激光主体
+                    ctx.fillStyle = '#00d4ff';
+                    ctx.shadowBlur = 15;
+                    ctx.shadowColor = '#00d4ff';
+                    ctx.fillRect(0, -p.height/2, p.width, p.height);
+                    
+                    // 激光核心
+                    ctx.fillStyle = 'white';
+                    ctx.fillRect(0, -2, p.width, 4);
+                    
+                    ctx.shadowBlur = 0;
+                    ctx.restore();
+                }
+            });
+            
+            // 绘制粒子
+            particles.forEach(pt => {
+                ctx.globalAlpha = pt.life / 40;
+                ctx.fillStyle = pt.color;
+                ctx.beginPath();
+                ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+            
+            // 绘制碰撞线（近距离时）
+            const dx = trex.x - carHero.x;
+            const dy = trex.y - carHero.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            
+            if(dist < 200) {
+                ctx.strokeStyle = `rgba(255, 0, 0, ${1 - dist/200})`;
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.moveTo(trex.x + trex.width/2, trex.y + trex.height/2);
+                ctx.lineTo(carHero.x + carHero.width/2, carHero.y + carHero.height/2);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+        }
+        
+        // 游戏循环
+        function gameLoop(timestamp) {
+            if(!lastTime) lastTime = timestamp;
+            const deltaTime = timestamp - lastTime;
+            
+            if(deltaTime >= 1000/60) {
+                update();
+                draw();
+                lastTime = timestamp;
+            }
+            
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // 计时器
+        setInterval(() => {
+            if(gameRunning && gameTime > 0) {
+                gameTime--;
+                document.getElementById('timer').textContent = gameTime;
+            }
+        }, 1000);
+        
+        // 开始游戏
+        function startGame() {
+            document.getElementById('startScreen').classList.add('hidden');
+            gameRunning = true;
+            resetGame();
+        }
+        
+        // 重置游戏
+        function resetGame() {
+            trex.x = 150;
+            trex.y = 350;
+            trex.health = 100;
+            trex.vx = 0;
+            trex.vy = 0;
+            
+            carHero.x = 1050;
+            carHero.y = 350;
+            carHero.health = 100;
+            carHero.vx = 0;
+            carHero.vy = 0;
+            
+            projectiles = [];
+            particles = [];
+            powerUps = [];
+            gameTime = 60;
+            gameRunning = true;
+            
+            document.getElementById('trexHealth').style.width = '100%';
+            document.getElementById('carHealth').style.width = '100%';
+            document.getElementById('timer').textContent = '60';
+        }
+        
+        // 结束游戏
+        function endGame() {
+            gameRunning = false;
+            const screen = document.getElementById('gameOverScreen');
+            const winnerText = document.getElementById('winnerText');
+            const finalScore = document.getElementById('finalScore');
+            
+            screen.classList.remove('hidden');
+            
+            if(trex.health <= 0 && carHero.health > 0) {
+                winnerText.textContent = '🚗 汽车侠获胜！';
+                winnerText.className = 'winner-text car-wins';
+                finalScore.textContent = `剩余血量: ${Math.floor(carHero.health)}% | 用时: ${60 - gameTime}秒`;
+            } else if(carHero.health <= 0 && trex.health > 0) {
+                winnerText.textContent = '🦖 霸王龙获胜！';
+                winnerText.className = 'winner-text trex-wins';
+                finalScore.textContent = `剩余血量: ${Math.floor(trex.health)}% | 用时: ${60 - gameTime}秒`;
+            } else {
+                if(trex.health > carHero.health) {
+                    winnerText.textContent = '🦖 霸王龙险胜！';
+                    winnerText.className = 'winner-text trex-wins';
+                } else if(carHero.health > trex.health) {
+                    winnerText.textContent = '🚗 汽车侠险胜！';
+                    winnerText.className = 'winner-text car-wins';
+                } else {
+                    winnerText.textContent = '⚔️ 平局！';
+                    winnerText.style.color = '#ffd700';
+                }
+                finalScore.textContent = `霸王龙: ${Math.floor(trex.health)}% vs 汽车侠: ${Math.floor(carHero.health)}%`;
+            }
+        }
+        
+        // 重新开始
+        function restartGame() {
+            document.getElementById('gameOverScreen').classList.add('hidden');
+            resetGame();
+        }
+        
+        // 启动游戏循环
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>
