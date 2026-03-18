@@ -1,0 +1,2057 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>深海吞噬者 - 进化之路</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        
+        body {
+            font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+            background: #001220;
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
+            height: 100%;
+        }
+        
+        #gameCanvas {
+            display: block;
+            background: linear-gradient(180deg, #006994 0%, #003d5c 50%, #001220 100%);
+        }
+        
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        .hud {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            pointer-events: auto;
+        }
+        
+        .hud-panel {
+            background: rgba(0, 20, 40, 0.85);
+            border: 2px solid #00d4ff;
+            border-radius: 15px;
+            padding: 10px 15px;
+            color: #fff;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 20px rgba(0, 212, 255, 0.3);
+        }
+        
+        .score-display {
+            font-size: 24px;
+            font-weight: bold;
+            color: #ffd700;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+        }
+        
+        .size-display {
+            font-size: 14px;
+            color: #00d4ff;
+            margin-top: 5px;
+        }
+        
+        .evolution-bar {
+            width: 200px;
+            height: 20px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 8px;
+            position: relative;
+        }
+        
+        .evolution-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00d4ff, #ff00ff, #ff0066);
+            border-radius: 10px;
+            transition: width 0.3s ease;
+            box-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+        }
+        
+        .evolution-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 11px;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+            white-space: nowrap;
+        }
+        
+        .stage-indicator {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+        }
+        
+        .stage-name {
+            font-size: 28px;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 0 20px currentColor;
+            animation: glow 2s ease-in-out infinite;
+        }
+        
+        @keyframes glow {
+            0%, 100% { text-shadow: 0 0 20px currentColor; }
+            50% { text-shadow: 0 0 40px currentColor, 0 0 60px currentColor; }
+        }
+        
+        .stage-sub {
+            font-size: 12px;
+            color: rgba(255,255,255,0.7);
+            margin-top: 5px;
+        }
+        
+        .abilities {
+            position: absolute;
+            top: 80px;
+            right: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .ability-icon {
+            width: 50px;
+            height: 50px;
+            background: rgba(0, 20, 40, 0.9);
+            border: 2px solid #00d4ff;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .ability-icon.active {
+            border-color: #ffd700;
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+            animation: pulse 1s infinite;
+        }
+        
+        .ability-cooldown {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 0%;
+            background: rgba(0,0,0,0.7);
+            border-radius: 0 0 8px 8px;
+            transition: height 0.1s linear;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
+        .minimap {
+            position: absolute;
+            bottom: 100px;
+            right: 10px;
+            width: 150px;
+            height: 100px;
+            background: rgba(0, 20, 40, 0.8);
+            border: 2px solid #00d4ff;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            display: flex;
+            gap: 15px;
+            pointer-events: auto;
+        }
+        
+        .control-btn {
+            width: 70px;
+            height: 70px;
+            background: rgba(0, 212, 255, 0.3);
+            border: 3px solid #00d4ff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
+            color: #fff;
+            cursor: pointer;
+            backdrop-filter: blur(5px);
+            transition: all 0.2s;
+        }
+        
+        .control-btn:active {
+            background: rgba(0, 212, 255, 0.6);
+            transform: scale(0.95);
+        }
+        
+        .skill-btn {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 90px;
+            height: 90px;
+            background: linear-gradient(135deg, #ff0066, #ff00ff);
+            border: 4px solid #fff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            color: #fff;
+            cursor: pointer;
+            box-shadow: 0 0 30px rgba(255, 0, 102, 0.5);
+            pointer-events: auto;
+            transition: all 0.2s;
+        }
+        
+        .skill-btn:active {
+            transform: scale(0.9);
+        }
+        
+        .skill-btn.cooldown {
+            opacity: 0.5;
+            filter: grayscale(0.8);
+        }
+        
+        .menu-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(180deg, #001a33 0%, #000d1a 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        
+        .game-title {
+            font-size: 56px;
+            font-weight: bold;
+            background: linear-gradient(90deg, #00d4ff, #ff00ff, #ffd700);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 60px rgba(0, 212, 255, 0.5);
+            margin-bottom: 20px;
+            animation: titleFloat 3s ease-in-out infinite;
+        }
+        
+        @keyframes titleFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-15px); }
+        }
+        
+        .evolution-preview {
+            display: flex;
+            gap: 20px;
+            margin: 30px 0;
+        }
+        
+        .evo-stage {
+            text-align: center;
+            opacity: 0.6;
+            transition: all 0.3s;
+        }
+        
+        .evo-stage.active {
+            opacity: 1;
+            transform: scale(1.2);
+        }
+        
+        .evo-icon {
+            width: 80px;
+            height: 80px;
+            background: rgba(0, 212, 255, 0.2);
+            border: 3px solid #00d4ff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            margin-bottom: 10px;
+        }
+        
+        .evo-name {
+            color: #fff;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        
+        .menu-btn {
+            padding: 15px 50px;
+            margin: 10px;
+            background: linear-gradient(90deg, #00d4ff, #0099cc);
+            border: none;
+            border-radius: 30px;
+            color: #fff;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 5px 20px rgba(0, 212, 255, 0.4);
+            transition: all 0.3s;
+        }
+        
+        .menu-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(0, 212, 255, 0.6);
+        }
+        
+        .transform-alert {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            text-align: center;
+            pointer-events: none;
+            z-index: 50;
+            transition: transform 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+        
+        .transform-alert.show {
+            transform: translate(-50%, -50%) scale(1);
+        }
+        
+        .transform-text {
+            font-size: 72px;
+            font-weight: bold;
+            color: #ffd700;
+            text-shadow: 0 0 40px #ff0066, 0 0 80px #ff0066;
+            animation: transformPulse 0.5s ease-in-out infinite;
+        }
+        
+        @keyframes transformPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
+        .pause-menu {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 90;
+        }
+        
+        .pause-content {
+            background: rgba(0, 20, 40, 0.95);
+            padding: 40px;
+            border-radius: 20px;
+            border: 2px solid #00d4ff;
+            text-align: center;
+        }
+        
+        .pause-title {
+            font-size: 36px;
+            color: #00d4ff;
+            margin-bottom: 30px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .stat-item {
+            background: rgba(0, 212, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            color: #fff;
+        }
+        
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #ffd700;
+        }
+        
+        .game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        
+        .game-over-title {
+            font-size: 64px;
+            color: #ff0066;
+            text-shadow: 0 0 40px #ff0066;
+            margin-bottom: 30px;
+        }
+        
+        .final-stats {
+            color: #fff;
+            font-size: 20px;
+            margin: 10px 0;
+        }
+        
+        .particle {
+            position: absolute;
+            pointer-events: none;
+            border-radius: 50%;
+        }
+        
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .game-title { font-size: 36px; }
+            .evolution-preview { gap: 10px; }
+            .evo-icon { width: 60px; height: 60px; font-size: 30px; }
+            .control-btn { width: 60px; height: 60px; }
+            .skill-btn { width: 80px; height: 80px; }
+            .evolution-bar { width: 150px; }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    
+    <div class="ui-layer" id="gameUI" style="display: none;">
+        <div class="hud">
+            <div class="hud-panel">
+                <div class="score-display">🌟 <span id="score">0</span></div>
+                <div class="size-display">体型: <span id="size">1.0</span>x</div>
+                <div class="evolution-bar">
+                    <div class="evolution-fill" id="evoBar" style="width: 0%"></div>
+                    <div class="evolution-text" id="evoText">幼年期 0%</div>
+                </div>
+            </div>
+            
+            <div class="stage-indicator">
+                <div class="stage-name" id="stageName" style="color: #00d4ff;">🐟 小丑鱼</div>
+                <div class="stage-sub">吞噬进化中...</div>
+            </div>
+            
+            <div class="hud-panel">
+                <div style="font-size: 14px; color: #00d4ff;">⏱️ <span id="time">00:00</span></div>
+                <div style="font-size: 14px; color: #ffd700; margin-top: 5px;">🎯 <span id="eaten">0</span></div>
+            </div>
+        </div>
+        
+        <div class="abilities" id="abilities">
+            <div class="ability-icon" id="ability1" title="冲刺">
+                ⚡
+                <div class="ability-cooldown" id="cd1"></div>
+            </div>
+            <div class="ability-icon" id="ability2" title="护盾">
+                🛡️
+                <div class="ability-cooldown" id="cd2"></div>
+            </div>
+            <div class="ability-icon" id="ability3" title="吞噬">
+                🌀
+                <div class="ability-cooldown" id="cd3"></div>
+            </div>
+        </div>
+        
+        <div class="minimap" id="minimap">
+            <canvas id="minimapCanvas" width="150" height="100"></canvas>
+        </div>
+        
+        <div class="controls">
+            <div class="control-btn" id="btnLeft">←</div>
+            <div class="control-btn" id="btnRight">→</div>
+            <div class="control-btn" id="btnUp">↑</div>
+            <div class="control-btn" id="btnDown">↓</div>
+        </div>
+        
+        <div class="skill-btn" id="skillBtn">⚡</div>
+        
+        <div class="transform-alert" id="transformAlert">
+            <div class="transform-text">✨ 进化! ✨</div>
+        </div>
+    </div>
+    
+    <div class="menu-screen" id="menuScreen">
+        <h1 class="game-title">🌊 深海吞噬者</h1>
+        <p style="color: rgba(255,255,255,0.7); margin-bottom: 20px;">进化之路，从一条小鱼开始</p>
+        
+        <div class="evolution-preview">
+            <div class="evo-stage active">
+                <div class="evo-icon">🐟</div>
+                <div class="evo-name">幼鱼</div>
+            </div>
+            <div class="evo-stage">
+                <div class="evo-icon">🐠</div>
+                <div class="evo-name">成鱼</div>
+            </div>
+            <div class="evo-stage">
+                <div class="evo-icon">🦈</div>
+                <div class="evo-name">鲨鱼</div>
+            </div>
+            <div class="evo-stage">
+                <div class="evo-icon">🐋</div>
+                <div class="evo-name">巨鲸</div>
+            </div>
+            <div class="evo-stage">
+                <div class="evo-icon">🐉</div>
+                <div class="evo-name">海龙</div>
+            </div>
+        </div>
+        
+        <button class="menu-btn" onclick="startGame()">🎮 开始游戏</button>
+        <button class="menu-btn" onclick="showHelp()" style="background: linear-gradient(90deg, #ff00ff, #ff0066);">📖 游戏说明</button>
+    </div>
+    
+    <div class="pause-menu" id="pauseMenu">
+        <div class="pause-content">
+            <div class="pause-title">⏸️ 暂停</div>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div>当前阶段</div>
+                    <div class="stat-value" id="pauseStage">🐟 小丑鱼</div>
+                </div>
+                <div class="stat-item">
+                    <div>吞噬数量</div>
+                    <div class="stat-value" id="pauseEaten">0</div>
+                </div>
+                <div class="stat-item">
+                    <div>当前得分</div>
+                    <div class="stat-value" id="pauseScore">0</div>
+                </div>
+                <div class="stat-item">
+                    <div>游戏时间</div>
+                    <div class="stat-value" id="pauseTime">00:00</div>
+                </div>
+            </div>
+            <button class="menu-btn" onclick="resumeGame()">▶️ 继续</button>
+            <button class="menu-btn" onclick="restartGame()" style="background: linear-gradient(90deg, #ff0066, #ff00ff);">🔄 重新开始</button>
+        </div>
+    </div>
+    
+    <div class="game-over" id="gameOver">
+        <div class="game-over-title">💀 游戏结束</div>
+        <div class="final-stats">最终阶段: <span id="finalStage">🐟 小丑鱼</span></div>
+        <div class="final-stats">总得分: <span id="finalScore">0</span></div>
+        <div class="final-stats">吞噬数量: <span id="finalEaten">0</span></div>
+        <div class="final-stats">生存时间: <span id="finalTime">00:00</span></div>
+        <button class="menu-btn" onclick="restartGame()" style="margin-top: 30px;">🔄 再玩一次</button>
+        <button class="menu-btn" onclick="backToMenu()" style="background: linear-gradient(90deg, #00d4ff, #0099cc);">🏠 返回主菜单</button>
+    </div>
+
+    <script>
+        // ==================== 游戏核心系统 ====================
+        
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const minimapCanvas = document.getElementById('minimapCanvas');
+        const minimapCtx = minimapCanvas.getContext('2d');
+        
+        let gameState = 'menu';
+        let gameTime = 0;
+        let lastTime = 0;
+        let animationId = null;
+        
+        // 游戏世界配置
+        const WORLD = {
+            width: 4000,
+            height: 3000,
+            gravity: 0.05,
+            friction: 0.92
+        };
+        
+        // 进化阶段配置
+        const EVOLUTION_STAGES = [
+            { name: '🐟 小丑鱼', color: '#ff6b6b', size: 20, speed: 3.6, eatRange: [0, 1], ability: 'dash', desc: '快速冲刺' },
+            { name: '🐠 热带鱼', color: '#4ecdc4', size: 35, speed: 3.3, eatRange: [0, 2], ability: 'shield', desc: '短暂无敌' },
+            { name: '🦈 鲨鱼', color: '#45b7d1', size: 60, speed: 3, eatRange: [0, 3], ability: 'bite', desc: '撕咬攻击' },
+            { name: '🐋 蓝鲸', color: '#96ceb4', size: 100, speed: 2.7, eatRange: [0, 4], ability: 'swallow', desc: '吞噬一切' },
+            { name: '🐉 深海龙', color: '#feca57', size: 150, speed: 2.4, eatRange: [0, 5], ability: 'dragonBreath', desc: '龙息攻击' },
+            { name: '👑 海神', color: '#ff9ff3', size: 220, speed: 2.1, eatRange: [0, 10], ability: 'tsunami', desc: '海啸毁灭' }
+        ];
+        
+        // 鱼类数据库
+        const FISH_TYPES = [
+            { emoji: '🦐', name: '小虾', size: 8, speed: 1.2, score: 10, stage: 0, color: '#ff9999' },
+            { emoji: '🦀', name: '螃蟹', size: 12, speed: 0.9, score: 15, stage: 0, color: '#ff7675' },
+            { emoji: '🐌', name: '海螺', size: 10, speed: 0.3, score: 12, stage: 0, color: '#fab1a0' },
+            { emoji: '🐟', name: '小鱼', size: 15, speed: 1.8, score: 20, stage: 1, color: '#74b9ff' },
+            { emoji: '🐡', name: '河豚', size: 18, speed: 1.2, score: 25, stage: 1, color: '#fdcb6e', dangerous: true },
+            { emoji: '🦑', name: '乌贼', size: 25, speed: 2.4, score: 35, stage: 2, color: '#a29bfe' },
+            { emoji: '🐙', name: '章鱼', size: 30, speed: 1.5, score: 40, stage: 2, color: '#fd79a8' },
+            { emoji: '🦈', name: '幼鲨', size: 40, speed: 3, score: 60, stage: 3, color: '#636e72' },
+            { emoji: '🐊', name: '鳄鱼', size: 50, speed: 1.8, score: 80, stage: 3, color: '#00b894' },
+            { emoji: '🐢', name: '海龟', size: 45, speed: 0.6, score: 70, stage: 3, color: '#55efc4', armor: true },
+            { emoji: '🦭', name: '海豹', size: 55, speed: 2.4, score: 90, stage: 4, color: '#dfe6e9' },
+            { emoji: '🐋', name: '幼鲸', size: 70, speed: 1.2, score: 120, stage: 4, color: '#74b9ff' },
+            { emoji: '🦑', name: '大王乌贼', size: 80, speed: 1.8, score: 150, stage: 4, color: '#6c5ce7' },
+            { emoji: '🦕', name: '蛇颈龙', size: 100, speed: 1.5, score: 200, stage: 5, color: '#00cec9' },
+            { emoji: '🐊', name: '巨鳄', size: 120, speed: 2.1, score: 250, stage: 5, color: '#2d3436' },
+            { emoji: '🦈', name: '巨齿鲨', size: 140, speed: 3.6, score: 300, stage: 5, color: '#b2bec3', boss: true }
+        ];
+        
+        // 游戏对象
+        let player = null;
+        let fishes = [];
+        let particles = [];
+        let camera = { x: 0, y: 0 };
+        let score = 0;
+        let eatenCount = 0;
+        
+        // 输入控制
+        const Input = { up: false, down: false, left: false, right: false, skill: false, pause: false };
+        
+        // 初始化画布
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resize();
+        window.addEventListener('resize', resize);
+        
+        // ==================== 关键修复：控制设置 ====================
+        function setupControls() {
+            console.log('设置控制...');
+            
+            const btnLeft = document.getElementById('btnLeft');
+            const btnRight = document.getElementById('btnRight');
+            const btnUp = document.getElementById('btnUp');
+            const btnDown = document.getElementById('btnDown');
+            const skillBtn = document.getElementById('skillBtn');
+            
+            if (!btnLeft || !btnRight || !btnUp || !btnDown) {
+                console.error('控制按钮未找到！');
+                return false;
+            }
+            
+            // 使用更可靠的事件绑定
+            const bindButton = (elem, key) => {
+                // 鼠标事件
+                elem.onmousedown = (e) => { e.preventDefault(); Input[key] = true; console.log(key + ' down'); };
+                elem.onmouseup = (e) => { e.preventDefault(); Input[key] = false; };
+                elem.onmouseleave = (e) => { Input[key] = false; };
+                
+                // 触摸事件
+                elem.ontouchstart = (e) => { 
+                    e.preventDefault(); 
+                    Input[key] = true; 
+                    console.log(key + ' touch start');
+                    return false;
+                };
+                elem.ontouchend = (e) => { 
+                    e.preventDefault(); 
+                    Input[key] = false; 
+                    return false;
+                };
+            };
+            
+            bindButton(btnLeft, 'left');
+            bindButton(btnRight, 'right');
+            bindButton(btnUp, 'up');
+            bindButton(btnDown, 'down');
+            
+            // 技能按钮
+            skillBtn.onclick = (e) => { e.preventDefault(); activateSkill(); };
+            skillBtn.ontouchstart = (e) => { e.preventDefault(); activateSkill(); return false; };
+            
+            console.log('控制设置完成');
+            return true;
+        }
+        
+        // ==================== 关键修复：键盘控制单独设置 ====================
+        window.onkeydown = (e) => {
+            console.log('Key down:', e.key);
+            switch(e.key) {
+                case 'ArrowUp': case 'w': case 'W': Input.up = true; e.preventDefault(); break;
+                case 'ArrowDown': case 's': case 'S': Input.down = true; e.preventDefault(); break;
+                case 'ArrowLeft': case 'a': case 'A': Input.left = true; e.preventDefault(); break;
+                case 'ArrowRight': case 'd': case 'D': Input.right = true; e.preventDefault(); break;
+                case ' ': case 'j': case 'J': activateSkill(); e.preventDefault(); break;
+                case 'Escape': case 'p': case 'P': togglePause(); e.preventDefault(); break;
+            }
+        };
+        
+        window.onkeyup = (e) => {
+            switch(e.key) {
+                case 'ArrowUp': case 'w': case 'W': Input.up = false; break;
+                case 'ArrowDown': case 's': case 'S': Input.down = false; break;
+                case 'ArrowLeft': case 'a': case 'A': Input.left = false; break;
+                case 'ArrowRight': case 'd': case 'D': Input.right = false; break;
+            }
+        };
+        
+        // ==================== 玩家类 ====================
+        
+        class Player {
+            constructor() {
+                this.x = WORLD.width / 2;
+                this.y = WORLD.height / 2;
+                this.vx = 0;
+                this.vy = 0;
+                this.stage = 0;
+                this.size = EVOLUTION_STAGES[0].size;
+                this.color = EVOLUTION_STAGES[0].color;
+                this.speed = EVOLUTION_STAGES[0].speed;
+                this.angle = 0;
+                this.targetAngle = 0;
+                this.evoProgress = 0;
+                this.evoThreshold = 100;
+                this.skills = {
+                    dash: { cooldown: 0, maxCooldown: 180, active: 0 },
+                    shield: { cooldown: 0, maxCooldown: 300, active: 0 },
+                    bite: { cooldown: 0, maxCooldown: 120, active: 0 },
+                    swallow: { cooldown: 0, maxCooldown: 240, active: 0 },
+                    dragonBreath: { cooldown: 0, maxCooldown: 360, active: 0 },
+                    tsunami: { cooldown: 0, maxCooldown: 600, active: 0 }
+                };
+                this.invincible = 0;
+                this.shielded = false;
+                this.dashing = false;
+            }
+            
+            update() {
+                // 修复：大幅增加加速度
+                let ax = 0, ay = 0;
+                if (Input.up) ay = -3;
+                if (Input.down) ay = 3;
+                if (Input.left) ax = -3;
+                if (Input.right) ax = 3;
+                
+                // 调试
+                if (ax !== 0 || ay !== 0) {
+                    console.log('移动中:', 'ax=', ax, 'ay=', ay, 'vx=', this.vx.toFixed(2), 'vy=', this.vy.toFixed(2));
+                }
+                
+                const currentSpeed = this.dashing ? this.speed * 3 : this.speed;
+                
+                this.vx += ax;
+                this.vy += ay;
+                this.vx *= WORLD.friction;
+                this.vy *= WORLD.friction;
+                
+                const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+                if (speed > currentSpeed) {
+                    this.vx = (this.vx / speed) * currentSpeed;
+                    this.vy = (this.vy / speed) * currentSpeed;
+                }
+                
+                this.x += this.vx;
+                this.y += this.vy;
+                
+                this.x = Math.max(this.size, Math.min(WORLD.width - this.size, this.x));
+                this.y = Math.max(this.size, Math.min(WORLD.height - this.size, this.y));
+                
+                if (speed > 0.1) {
+                    this.targetAngle = Math.atan2(this.vy, this.vx);
+                }
+                
+                let angleDiff = this.targetAngle - this.angle;
+                while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+                while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+                this.angle += angleDiff * 0.1;
+                
+                Object.keys(this.skills).forEach(key => {
+                    const skill = this.skills[key];
+                    if (skill.cooldown > 0) skill.cooldown--;
+                    if (skill.active > 0) skill.active--;
+                });
+                
+                if (this.invincible > 0) this.invincible--;
+                if (this.dashing && this.skills.dash.active <= 0) this.dashing = false;
+                this.shielded = this.skills.shield.active > 0;
+                
+                if (Math.random() < 0.3 || this.dashing) {
+                    particles.push(new Bubble(this.x, this.y, this.size * 0.1, this.color));
+                }
+            }
+            
+            draw() {
+                const screenX = this.x - camera.x;
+                const screenY = this.y - camera.y;
+                
+                if (screenX < -200 || screenX > canvas.width + 200 || screenY < -200 || screenY > canvas.height + 200) return;
+                
+                ctx.save();
+                ctx.translate(screenX, screenY);
+                ctx.rotate(this.angle);
+                
+                if (this.invincible > 0 && Math.floor(Date.now() / 50) % 2 === 0) {
+                    ctx.globalAlpha = 0.5;
+                }
+                
+                if (this.shielded) {
+                    ctx.strokeStyle = '#00d4ff';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.size + 10, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.fillStyle = 'rgba(0, 212, 255, 0.2)';
+                    ctx.fill();
+                }
+                
+                if (this.dashing) {
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                    ctx.beginPath();
+                    ctx.arc(-this.size * 0.5, 0, this.size * 0.8, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.size);
+                gradient.addColorStop(0, this.color);
+                gradient.addColorStop(0.7, this.adjustColor(this.color, -30));
+                gradient.addColorStop(1, this.adjustColor(this.color, -60));
+                ctx.fillStyle = gradient;
+                
+                if (this.stage <= 1) {
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, this.size, this.size * 0.6, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    const tailWag = Math.sin(Date.now() * 0.01) * 0.3;
+                    ctx.beginPath();
+                    ctx.moveTo(-this.size * 0.8, 0);
+                    ctx.lineTo(-this.size * 1.4, -this.size * 0.4 + tailWag * 10);
+                    ctx.lineTo(-this.size * 1.4, this.size * 0.4 + tailWag * 10);
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                } else if (this.stage === 2) {
+                    ctx.beginPath();
+                    ctx.moveTo(this.size, 0);
+                    ctx.quadraticCurveTo(0, -this.size * 0.5, -this.size * 0.8, 0);
+                    ctx.quadraticCurveTo(0, this.size * 0.5, this.size, 0);
+                    ctx.fill();
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(-this.size * 0.2, -this.size * 0.3);
+                    ctx.lineTo(-this.size * 0.5, -this.size * 0.9);
+                    ctx.lineTo(this.size * 0.2, -this.size * 0.3);
+                    ctx.fill();
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(-this.size * 0.8, 0);
+                    ctx.lineTo(-this.size * 1.5, -this.size * 0.6);
+                    ctx.lineTo(-this.size * 1.2, 0);
+                    ctx.lineTo(-this.size * 1.5, this.size * 0.6);
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                } else if (this.stage === 3) {
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.size * 0.9, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    ctx.beginPath();
+                    ctx.ellipse(-this.size * 1.2, 0, this.size * 0.5, this.size * 0.3, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    if (Math.random() < 0.05) {
+                        particles.push(new Bubble(this.x, this.y - this.size, 5, 'rgba(255,255,255,0.6)', true));
+                    }
+                    
+                } else if (this.stage === 4) {
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, this.size * 0.9, this.size * 0.7, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    ctx.fillStyle = '#ffd700';
+                    ctx.beginPath();
+                    ctx.moveTo(this.size * 0.3, -this.size * 0.5);
+                    ctx.lineTo(this.size * 0.5, -this.size * 1.2);
+                    ctx.lineTo(this.size * 0.6, -this.size * 0.4);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.moveTo(this.size * 0.1, -this.size * 0.5);
+                    ctx.lineTo(0, -this.size * 1.0);
+                    ctx.lineTo(this.size * 0.3, -this.size * 0.4);
+                    ctx.fill();
+                    
+                    const wingFlap = Math.sin(Date.now() * 0.005) * 0.2;
+                    ctx.fillStyle = this.adjustColor(this.color, 20);
+                    ctx.beginPath();
+                    ctx.ellipse(0, -this.size * 0.6, this.size * 0.8, this.size * 0.4, wingFlap, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                } else {
+                    const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, this.size * 1.5);
+                    glow.addColorStop(0, this.color);
+                    glow.addColorStop(0.5, 'rgba(255, 159, 243, 0.5)');
+                    glow.addColorStop(1, 'transparent');
+                    ctx.fillStyle = glow;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.size * 1.5, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    ctx.fillStyle = '#fff';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.size * 0.8, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                const eyeSize = this.size * 0.15;
+                const eyeX = this.size * 0.3;
+                const eyeY = -this.size * 0.2;
+                
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.arc(eyeX, eyeY, eyeSize, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.fillStyle = '#000';
+                ctx.beginPath();
+                ctx.arc(eyeX + eyeSize * 0.3, eyeY, eyeSize * 0.5, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.strokeStyle = this.adjustColor(this.color, -80);
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(this.size * 0.5, this.size * 0.1, this.size * 0.2, 0.2, 0.8);
+                ctx.stroke();
+                
+                ctx.restore();
+            }
+            
+            adjustColor(color, amount) {
+                const num = parseInt(color.replace('#', ''), 16);
+                const r = Math.max(0, Math.min(255, (num >> 16) + amount));
+                const g = Math.max(0, Math.min(255, ((num >> 8) & 0x00FF) + amount));
+                const b = Math.max(0, Math.min(255, (num & 0x0000FF) + amount));
+                return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+            }
+            
+            eat(fish) {
+                const baseScore = fish.type.score;
+                const sizeBonus = Math.floor(fish.type.size / this.size * 100);
+                const totalScore = baseScore + sizeBonus;
+                
+                score += totalScore;
+                eatenCount++;
+                this.evoProgress += fish.type.size;
+                
+                createEatEffect(fish.x, fish.y, fish.type.color);
+                
+                if (this.evoProgress >= this.evoThreshold && this.stage < EVOLUTION_STAGES.length - 1) {
+                    this.evolve();
+                }
+                
+                updateHUD();
+            }
+            
+            evolve() {
+                this.stage++;
+                const newStage = EVOLUTION_STAGES[this.stage];
+                
+                this.size = newStage.size;
+                this.color = newStage.color;
+                this.speed = newStage.speed;
+                this.evoProgress = 0;
+                this.evoThreshold *= 1.5;
+                
+                showTransformAlert();
+                createEvolutionEffect(this.x, this.y);
+                
+                this.invincible = 120;
+                
+                updateHUD();
+            }
+            
+            takeDamage() {
+                if (this.invincible > 0 || this.shielded) return false;
+                
+                this.invincible = 60;
+                
+                if (this.evoProgress > 20) {
+                    this.evoProgress -= 20;
+                } else {
+                    this.evoProgress = 0;
+                }
+                
+                this.vx = -this.vx * 2;
+                this.vy = -this.vy * 2;
+                
+                updateHUD();
+                return true;
+            }
+            
+            getBounds() {
+                return {
+                    x: this.x - this.size * 0.8,
+                    y: this.y - this.size * 0.8,
+                    width: this.size * 1.6,
+                    height: this.size * 1.6
+                };
+            }
+        }
+        
+        // ==================== 鱼类AI ====================
+        
+        class Fish {
+            constructor(x, y, type) {
+                this.x = x || Math.random() * WORLD.width;
+                this.y = y || Math.random() * WORLD.height;
+                this.type = type || FISH_TYPES[Math.floor(Math.random() * Math.min(FISH_TYPES.length, 5))];
+                this.size = this.type.size;
+                this.vx = (Math.random() - 0.5) * this.type.speed;
+                this.vy = (Math.random() - 0.5) * this.type.speed;
+                this.angle = Math.random() * Math.PI * 2;
+                this.animOffset = Math.random() * 1000;
+                this.fleeing = false;
+                this.hunting = false;
+            }
+            
+            update() {
+                const dx = player.x - this.x;
+                const dy = player.y - this.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                
+                this.fleeing = false;
+                this.hunting = false;
+                
+                if (dist < 300) {
+                    if (this.type.stage < player.stage || (this.type.stage === player.stage && this.size < player.size)) {
+                        this.fleeing = true;
+                        this.vx -= (dx / dist) * 0.3;
+                        this.vy -= (dy / dist) * 0.3;
+                    } else if (this.type.stage > player.stage || this.size > player.size * 1.2) {
+                        this.hunting = true;
+                        this.vx += (dx / dist) * 0.2;
+                        this.vy += (dy / dist) * 0.2;
+                    }
+                }
+                
+                const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+                const maxSpeed = this.fleeing ? this.type.speed * 1.5 : this.type.speed;
+                if (speed > maxSpeed) {
+                    this.vx = (this.vx / speed) * maxSpeed;
+                    this.vy = (this.vy / speed) * maxSpeed;
+                }
+                
+                this.x += this.vx;
+                this.y += this.vy;
+                
+                if (this.x < -100) this.x = WORLD.width + 100;
+                if (this.x > WORLD.width + 100) this.x = -100;
+                if (this.y < -100) this.y = WORLD.height + 100;
+                if (this.y > WORLD.height + 100) this.y = -100;
+                
+                if (speed > 0.1) {
+                    this.angle = Math.atan2(this.vy, this.vx);
+                }
+            }
+            
+            draw() {
+                const screenX = this.x - camera.x;
+                const screenY = this.y - camera.y;
+                
+                if (screenX < -100 || screenX > canvas.width + 100 || screenY < -100 || screenY > canvas.height + 100) return;
+                
+                ctx.save();
+                ctx.translate(screenX, screenY);
+                ctx.rotate(this.angle);
+                
+                if (this.type.dangerous) {
+                    ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.size * 1.5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                ctx.fillStyle = this.type.color;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, this.size * 0.8, this.size * 0.5, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                const tailWag = Math.sin((Date.now() + this.animOffset) * 0.01) * 0.3;
+                ctx.beginPath();
+                ctx.moveTo(-this.size * 0.6, 0);
+                ctx.lineTo(-this.size * 1.2, -this.size * 0.4 + tailWag * this.size * 0.3);
+                ctx.lineTo(-this.size * 1.2, this.size * 0.4 + tailWag * this.size * 0.3);
+                ctx.closePath();
+                ctx.fill();
+                
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.arc(this.size * 0.3, -this.size * 0.15, this.size * 0.2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#000';
+                ctx.beginPath();
+                ctx.arc(this.size * 0.35, -this.size * 0.15, this.size * 0.1, 0, Math.PI * 2);
+                ctx.fill();
+                
+                if (this.fleeing) {
+                    ctx.strokeStyle = '#000';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(this.size * 0.3, this.size * 0.2, this.size * 0.15, 0, Math.PI, true);
+                    ctx.stroke();
+                } else if (this.hunting) {
+                    ctx.strokeStyle = '#f00';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(this.size * 0.3, this.size * 0.25, this.size * 0.15, 0, Math.PI, false);
+                    ctx.stroke();
+                }
+                
+                ctx.restore();
+            }
+            
+            getBounds() {
+                return {
+                    x: this.x - this.size * 0.6,
+                    y: this.y - this.size * 0.6,
+                    width: this.size * 1.2,
+                    height: this.size * 1.2
+                };
+            }
+        }
+        
+        // ==================== 粒子系统 ====================
+        
+        class Bubble {
+            constructor(x, y, size, color, isWater = false) {
+                this.x = x;
+                this.y = y;
+                this.size = size;
+                this.color = color;
+                this.vx = (Math.random() - 0.5) * 0.5;
+                this.vy = isWater ? -2 - Math.random() * 2 : (Math.random() - 0.5) * 0.5;
+                this.life = 100 + Math.random() * 50;
+                this.maxLife = this.life;
+                this.isWater = isWater;
+            }
+            
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.life--;
+                
+                if (this.isWater && this.life % 10 === 0) {
+                    this.vx += (Math.random() - 0.5) * 0.2;
+                }
+            }
+            
+            draw() {
+                const screenX = this.x - camera.x;
+                const screenY = this.y - camera.y;
+                
+                ctx.save();
+                ctx.globalAlpha = this.life / this.maxLife * 0.6;
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(screenX, screenY, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.fillStyle = 'rgba(255,255,255,0.8)';
+                ctx.beginPath();
+                ctx.arc(screenX - this.size * 0.3, screenY - this.size * 0.3, this.size * 0.2, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.restore();
+            }
+        }
+        
+        class Particle {
+            constructor(x, y, vx, vy, size, color, life) {
+                this.x = x;
+                this.y = y;
+                this.vx = vx;
+                this.vy = vy;
+                this.size = size;
+                this.color = color;
+                this.life = life;
+                this.maxLife = life;
+            }
+            
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vy += 0.1;
+                this.life--;
+            }
+            
+            draw() {
+                const screenX = this.x - camera.x;
+                const screenY = this.y - camera.y;
+                
+                ctx.save();
+                ctx.globalAlpha = this.life / this.maxLife;
+                ctx.fillStyle = this.color;
+                ctx.fillRect(screenX, screenY, this.size, this.size);
+                ctx.restore();
+            }
+        }
+        
+        // ==================== 特效系统 ====================
+        
+        function createEatEffect(x, y, color) {
+            for (let i = 0; i < 8; i++) {
+                const angle = (Math.PI * 2 / 8) * i;
+                particles.push(new Particle(
+                    x, y,
+                    Math.cos(angle) * 3,
+                    Math.sin(angle) * 3,
+                    4 + Math.random() * 4,
+                    color,
+                    30
+                ));
+            }
+        }
+        
+        function createEvolutionEffect(x, y) {
+            for (let i = 0; i < 50; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 5 + Math.random() * 10;
+                particles.push(new Particle(
+                    x, y,
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed,
+                    6 + Math.random() * 6,
+                    `hsl(${Math.random() * 60 + 300}, 100%, 70%)`,
+                    60
+                ));
+            }
+            
+            for (let i = 0; i < 30; i++) {
+                particles.push(new Particle(
+                    x + (Math.random() - 0.5) * 100,
+                    y + (Math.random() - 0.5) * 100,
+                    (Math.random() - 0.5) * 2,
+                    -5 - Math.random() * 5,
+                    4,
+                    '#ffd700',
+                    80
+                ));
+            }
+        }
+        
+        function showTransformAlert() {
+            const alert = document.getElementById('transformAlert');
+            const stage = EVOLUTION_STAGES[player.stage];
+            alert.querySelector('.transform-text').textContent = `✨ 进化为 ${stage.name}! ✨`;
+            alert.classList.add('show');
+            
+            setTimeout(() => {
+                alert.classList.remove('show');
+            }, 2000);
+        }
+        
+        // ==================== 游戏逻辑 ====================
+        
+        function initGame() {
+            player = new Player();
+            fishes = [];
+            particles = [];
+            score = 0;
+            eatenCount = 0;
+            gameTime = 0;
+            
+            for (let i = 0; i < 30; i++) {
+                spawnFish();
+            }
+            
+            updateHUD();
+        }
+        
+        function spawnFish() {
+            const playerStage = player ? player.stage : 0;
+            const maxFishStage = Math.min(FISH_TYPES.length - 1, playerStage + 3);
+            const minFishStage = Math.max(0, playerStage - 1);
+            
+            const availableTypes = FISH_TYPES.filter(t => t.stage >= minFishStage && t.stage <= maxFishStage);
+            const type = availableTypes[Math.floor(Math.random() * availableTypes.length)];
+            
+            let x, y, dist;
+            do {
+                x = Math.random() * WORLD.width;
+                y = Math.random() * WORLD.height;
+                const dx = x - (player ? player.x : WORLD.width/2);
+                const dy = y - (player ? player.y : WORLD.height/2);
+                dist = Math.sqrt(dx*dx + dy*dy);
+            } while (dist < 300);
+            
+            fishes.push(new Fish(x, y, type));
+        }
+        
+        function updateGame() {
+            player.update();
+            
+            camera.x = player.x - canvas.width / 2;
+            camera.y = player.y - canvas.height / 2;
+            camera.x = Math.max(0, Math.min(WORLD.width - canvas.width, camera.x));
+            camera.y = Math.max(0, Math.min(WORLD.height - canvas.height, camera.y));
+            
+            fishes.forEach(fish => fish.update());
+            
+            const playerBounds = player.getBounds();
+            
+            for (let i = fishes.length - 1; i >= 0; i--) {
+                const fish = fishes[i];
+                const fishBounds = fish.getBounds();
+                
+                if (checkCollision(playerBounds, fishBounds)) {
+                    if (fish.type.stage < player.stage || 
+                        (fish.type.stage === player.stage && fish.size < player.size * 0.8)) {
+                        player.eat(fish);
+                        fishes.splice(i, 1);
+                        spawnFish();
+                        
+                        if (fishes.length < 20) {
+                            for (let j = 0; j < 3; j++) spawnFish();
+                        }
+                    } else if (fish.type.stage > player.stage || fish.size > player.size * 1.2) {
+                        if (player.takeDamage()) {
+                            const dx = fish.x - player.x;
+                            const dy = fish.y - player.y;
+                            const dist = Math.sqrt(dx*dx + dy*dy);
+                            fish.vx = (dx/dist) * 10;
+                            fish.vy = (dy/dist) * 10;
+                        }
+                    }
+                }
+            }
+            
+            particles = particles.filter(p => {
+                p.update();
+                return p.life > 0;
+            });
+            
+            if (Math.random() < 0.1) {
+                particles.push(new Bubble(
+                    camera.x + Math.random() * canvas.width,
+                    camera.y + canvas.height + 20,
+                    2 + Math.random() * 6,
+                    'rgba(255,255,255,0.3)',
+                    true
+                ));
+            }
+            
+            if (fishes.length < 15) {
+                spawnFish();
+            }
+            
+            gameTime++;
+            if (gameTime % 60 === 0) {
+                updateTimeDisplay();
+            }
+        }
+        
+        function drawGame() {
+            ctx.fillStyle = '#001220';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            drawBackground();
+            
+            ctx.strokeStyle = 'rgba(0, 212, 255, 0.05)';
+            ctx.lineWidth = 1;
+            const gridSize = 100;
+            const offsetX = -camera.x % gridSize;
+            const offsetY = -camera.y % gridSize;
+            
+            for (let x = offsetX; x < canvas.width; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            for (let y = offsetY; y < canvas.height; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+            
+            particles.filter(p => p instanceof Bubble && p.isWater).forEach(p => p.draw());
+            
+            const allEntities = [...fishes, player].sort((a, b) => a.y - b.y);
+            allEntities.forEach(entity => entity.draw());
+            
+            particles.filter(p => !(p instanceof Bubble && p.isWater)).forEach(p => p.draw());
+            
+            drawMinimap();
+        }
+        
+        function drawBackground() {
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#006994');
+            gradient.addColorStop(0.5, '#003d5c');
+            gradient.addColorStop(1, '#001220');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            const lightX = WORLD.width / 2 - camera.x;
+            const lightY = -100 - camera.y;
+            const lightGrad = ctx.createRadialGradient(lightX, lightY, 0, lightX, lightY, 800);
+            lightGrad.addColorStop(0, 'rgba(0, 212, 255, 0.3)');
+            lightGrad.addColorStop(1, 'transparent');
+            ctx.fillStyle = lightGrad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        
+        function drawMinimap() {
+            minimapCtx.fillStyle = 'rgba(0, 20, 40, 0.8)';
+            minimapCtx.fillRect(0, 0, 150, 100);
+            
+            const scaleX = 150 / WORLD.width;
+            const scaleY = 100 / WORLD.height;
+            
+            fishes.forEach(fish => {
+                const mx = fish.x * scaleX;
+                const my = fish.y * scaleY;
+                minimapCtx.fillStyle = fish.type.stage > player.stage ? '#ff0066' : '#00d4ff';
+                minimapCtx.fillRect(mx - 1, my - 1, 3, 3);
+            });
+            
+            const px = player.x * scaleX;
+            const py = player.y * scaleY;
+            minimapCtx.fillStyle = '#ffd700';
+            minimapCtx.beginPath();
+            minimapCtx.arc(px, py, 4, 0, Math.PI * 2);
+            minimapCtx.fill();
+            
+            minimapCtx.strokeStyle = '#fff';
+            minimapCtx.lineWidth = 1;
+            minimapCtx.strokeRect(
+                camera.x * scaleX,
+                camera.y * scaleY,
+                canvas.width * scaleX,
+                canvas.height * scaleY
+            );
+        }
+        
+        function checkCollision(r1, r2) {
+            return r1.x < r2.x + r2.width &&
+                   r1.x + r1.width > r2.x &&
+                   r1.y < r2.y + r2.height &&
+                   r1.y + r1.height > r2.y;
+        }
+        
+        // ==================== UI更新 ====================
+        
+        function updateHUD() {
+            document.getElementById('score').textContent = score.toLocaleString();
+            document.getElementById('size').textContent = (player.size / 20).toFixed(1);
+            document.getElementById('eaten').textContent = eatenCount;
+            
+            const stage = EVOLUTION_STAGES[player.stage];
+            document.getElementById('stageName').textContent = stage.name;
+            document.getElementById('stageName').style.color = stage.color;
+            
+            const progress = Math.min(100, (player.evoProgress / player.evoThreshold) * 100);
+            document.getElementById('evoBar').style.width = progress + '%';
+            
+            let nextStageText = 'MAX';
+            if (player.stage < EVOLUTION_STAGES.length - 1) {
+                nextStageText = EVOLUTION_STAGES[player.stage + 1].name;
+            }
+            document.getElementById('evoText').textContent = `${stage.name} ${Math.floor(progress)}% → ${nextStageText}`;
+            
+            const skillBtn = document.getElementById('skillBtn');
+            const currentSkill = player.skills[stage.ability];
+            if (currentSkill.cooldown > 0) {
+                skillBtn.classList.add('cooldown');
+                skillBtn.style.opacity = 0.5 + (1 - currentSkill.cooldown / currentSkill.maxCooldown) * 0.5;
+            } else {
+                skillBtn.classList.remove('cooldown');
+                skillBtn.style.opacity = 1;
+            }
+        }
+        
+        function updateTimeDisplay() {
+            const minutes = Math.floor(gameTime / 3600);
+            const seconds = Math.floor((gameTime % 3600) / 60);
+            const timeStr = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            document.getElementById('time').textContent = timeStr;
+        }
+        
+        // ==================== 技能系统 ====================
+        
+        function activateSkill() {
+            if (!player || gameState !== 'playing') return;
+            
+            const stage = EVOLUTION_STAGES[player.stage];
+            const skill = player.skills[stage.ability];
+            
+            if (skill.cooldown > 0 || skill.active > 0) return;
+            
+            switch(stage.ability) {
+                case 'dash':
+                    player.dashing = true;
+                    player.skills.dash.active = 30;
+                    player.skills.dash.cooldown = player.skills.dash.maxCooldown;
+                    for (let i = 0; i < 10; i++) {
+                        particles.push(new Bubble(
+                            player.x - Math.cos(player.angle) * 30,
+                            player.y - Math.sin(player.angle) * 30,
+                            5 + Math.random() * 5,
+                            'rgba(0, 212, 255, 0.6)'
+                        ));
+                    }
+                    break;
+                    
+                case 'shield':
+                    player.skills.shield.active = 180;
+                    player.skills.shield.cooldown = player.skills.shield.maxCooldown;
+                    break;
+                    
+                case 'bite':
+                    player.skills.bite.active = 20;
+                    player.skills.bite.cooldown = player.skills.bite.maxCooldown;
+                    fishes.forEach(fish => {
+                        const dx = fish.x - player.x;
+                        const dy = fish.y - player.y;
+                        const dist = Math.sqrt(dx*dx + dy*dy);
+                        if (dist < player.size * 3 && fish.type.stage <= player.stage) {
+                            if (fish.size < player.size * 0.9) {
+                                player.eat(fish);
+                                const idx = fishes.indexOf(fish);
+                                if (idx > -1) {
+                                    fishes.splice(idx, 1);
+                                    spawnFish();
+                                }
+                            }
+                        }
+                    });
+                    break;
+                    
+                case 'swallow':
+                    player.skills.swallow.active = 60;
+                    player.skills.swallow.cooldown = player.skills.swallow.maxCooldown;
+                    fishes.forEach(fish => {
+                        const dx = player.x - fish.x;
+                        const dy = player.y - fish.y;
+                        const dist = Math.sqrt(dx*dx + dy*dy);
+                        if (dist < 400) {
+                            fish.vx += dx * 0.01;
+                            fish.vy += dy * 0.01;
+                        }
+                    });
+                    break;
+                    
+                case 'dragonBreath':
+                    player.skills.dragonBreath.active = 120;
+                    player.skills.dragonBreath.cooldown = player.skills.dragonBreath.maxCooldown;
+                    for (let i = 0; i < 20; i++) {
+                        const angle = player.angle + (Math.random() - 0.5) * 0.5;
+                        particles.push(new Particle(
+                            player.x + Math.cos(player.angle) * player.size,
+                            player.y + Math.sin(player.angle) * player.size,
+                            Math.cos(angle) * 10,
+                            Math.sin(angle) * 10,
+                            8,
+                            '#ff0066',
+                            40
+                        ));
+                    }
+                    fishes.forEach(fish => {
+                        const dx = fish.x - player.x;
+                        const dy = fish.y - player.y;
+                        const dist = Math.sqrt(dx*dx + dy*dy);
+                        const angleToFish = Math.atan2(dy, dx);
+                        let angleDiff = Math.abs(angleToFish - player.angle);
+                        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+                        
+                        if (dist < 300 && Math.abs(angleDiff) < 0.5) {
+                            const idx = fishes.indexOf(fish);
+                            if (idx > -1) {
+                                player.evoProgress += fish.type.size * 0.5;
+                                fishes.splice(idx, 1);
+                                spawnFish();
+                                createEatEffect(fish.x, fish.y, fish.type.color);
+                            }
+                        }
+                    });
+                    break;
+                    
+                case 'tsunami':
+                    player.skills.tsunami.active = 180;
+                    player.skills.tsunami.cooldown = player.skills.tsunami.maxCooldown;
+                    for (let i = fishes.length - 1; i >= 0; i--) {
+                        if (fishes[i].type.stage <= player.stage) {
+                            player.evoProgress += fishes[i].type.size * 0.3;
+                            createEatEffect(fishes[i].x, fishes[i].y, fishes[i].type.color);
+                            fishes.splice(i, 1);
+                        }
+                    }
+                    for (let i = 0; i < 50; i++) spawnFish();
+                    createEvolutionEffect(player.x, player.y);
+                    updateHUD();
+                    break;
+            }
+        }
+        
+        // ==================== 游戏控制 ====================
+        
+        function startGame() {
+            console.log('开始游戏被调用');
+            
+            // 关键修复：先设置控制
+            if (!setupControls()) {
+                console.error('控制设置失败');
+            }
+            
+            document.getElementById('menuScreen').style.display = 'none';
+            document.getElementById('gameUI').style.display = 'block';
+            
+            gameState = 'playing';
+            initGame();
+            
+            console.log('游戏状态:', gameState, '玩家:', player);
+            
+            if (animationId) cancelAnimationFrame(animationId);
+            gameLoop();
+        }
+        
+        function togglePause() {
+            if (gameState === 'playing') {
+                gameState = 'paused';
+                document.getElementById('pauseMenu').style.display = 'flex';
+                document.getElementById('pauseScore').textContent = score.toLocaleString();
+                document.getElementById('pauseEaten').textContent = eatenCount;
+                document.getElementById('pauseStage').textContent = EVOLUTION_STAGES[player.stage].name;
+                document.getElementById('pauseTime').textContent = document.getElementById('time').textContent;
+            } else if (gameState === 'paused') {
+                resumeGame();
+            }
+        }
+        
+        function resumeGame() {
+            gameState = 'playing';
+            document.getElementById('pauseMenu').style.display = 'none';
+            lastTime = performance.now();
+            gameLoop();
+        }
+        
+        function restartGame() {
+            document.getElementById('pauseMenu').style.display = 'none';
+            document.getElementById('gameOver').style.display = 'none';
+            gameState = 'playing';
+            initGame();
+            gameLoop();
+        }
+        
+        function backToMenu() {
+            document.getElementById('gameOver').style.display = 'none';
+            document.getElementById('gameUI').style.display = 'none';
+            document.getElementById('menuScreen').style.display = 'flex';
+            gameState = 'menu';
+        }
+        
+        function showHelp() {
+            alert(`🎮 游戏说明：
+            
+🐟 操作方式：
+• 方向键/触摸按钮：移动
+• 空格/技能按钮：使用特殊技能
+• ESC/P：暂停游戏
+
+🌟 游戏目标：
+• 吃掉比自己小的鱼来成长
+• 躲避比自己大的鱼
+• 收集足够能量进化到下一阶段
+
+⚡ 进化阶段：
+🐟 小丑鱼 → 🐠 热带鱼 → 🦈 鲨鱼 → 🐋 蓝鲸 → 🐉 深海龙 → 👑 海神
+
+💡 小技巧：
+• 小鱼游得快但吃的不多
+• 危险的红圈鱼会主动攻击
+• 合理运用技能可以逆转局势
+• 进化后会有新的能力和外观
+
+祝你游戏愉快！`);
+        }
+        
+                function gameOver() {
+            gameState = 'gameover';
+            document.getElementById('gameOver').style.display = 'flex';
+            document.getElementById('finalStage').textContent = EVOLUTION_STAGES[player.stage].name;
+            document.getElementById('finalScore').textContent = score.toLocaleString();
+            document.getElementById('finalEaten').textContent = eatenCount;
+            document.getElementById('finalTime').textContent = document.getElementById('time').textContent;
+        }
+
+        // ==================== 游戏主循环 ====================
+
+        function gameLoop(currentTime) {
+            if (gameState === 'playing') {
+                updateGame();
+                drawGame();
+                updateHUD();
+                
+                // 检查游戏结束条件（被吃掉）
+                if (player.size < 10) {
+                    gameOver();
+                }
+            }
+            
+            if (gameState === 'playing' || gameState === 'paused') {
+                animationId = requestAnimationFrame(gameLoop);
+            }
+        }
+
+        // ==================== 触摸控制增强 ====================
+
+        // 防止默认触摸行为（滚动、缩放等）
+        document.addEventListener('touchmove', function(e) {
+            e.preventDefault();
+        }, { passive: false });
+
+        document.addEventListener('touchstart', function(e) {
+            if (e.target.tagName !== 'BUTTON' && e.target.className.indexOf('btn') === -1) {
+                // 记录触摸起始位置用于虚拟摇杆
+                if (e.touches.length === 1) {
+                    const touch = e.touches[0];
+                    touchStartX = touch.clientX;
+                    touchStartY = touch.clientY;
+                }
+            }
+        }, { passive: false });
+
+        let touchStartX = 0;
+        let touchStartY = 0;
+
+        // 全屏触摸移动控制（替代方向键）
+        canvas.addEventListener('touchmove', function(e) {
+            if (gameState !== 'playing') return;
+            e.preventDefault();
+            
+            if (e.touches.length === 1) {
+                const touch = e.touches[0];
+                const rect = canvas.getBoundingClientRect();
+                const x = touch.clientX - rect.left;
+                const y = touch.clientY - rect.top;
+                
+                // 计算相对于屏幕中心的方向
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+                const dx = x - centerX;
+                const dy = y - centerY;
+                
+                // 设置输入状态
+                const threshold = 20;
+                Input.right = dx > threshold;
+                Input.left = dx < -threshold;
+                Input.down = dy > threshold;
+                Input.up = dy < -threshold;
+            }
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', function(e) {
+            // 重置所有方向输入
+            Input.up = false;
+            Input.down = false;
+            Input.left = false;
+            Input.right = false;
+        });
+
+        // 双击释放技能
+        let lastTapTime = 0;
+        canvas.addEventListener('touchend', function(e) {
+            const currentTime = new Date().getTime();
+            const tapLength = currentTime - lastTapTime;
+            if (tapLength < 300 && tapLength > 0) {
+                // 双击 detected
+                activateSkill();
+            }
+            lastTapTime = currentTime;
+        });
+
+        // ==================== 键盘控制增强 ====================
+
+        // 防止方向键滚动页面
+        window.addEventListener("keydown", function(e) {
+            if(["Space","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].indexOf(e.code) > -1) {
+                e.preventDefault();
+            }
+        }, false);
+
+        // ==================== 鼠标控制支持 ====================
+
+        let mouseX = 0;
+        let mouseY = 0;
+        let mouseActive = false;
+
+        canvas.addEventListener('mousemove', function(e) {
+            if (gameState !== 'playing') return;
+            const rect = canvas.getBoundingClientRect();
+            mouseX = e.clientX - rect.left;
+            mouseY = e.clientY - rect.top;
+            mouseActive = true;
+        });
+
+        canvas.addEventListener('mouseleave', function() {
+            mouseActive = false;
+            Input.up = false;
+            Input.down = false;
+            Input.left = false;
+            Input.right = false;
+        });
+
+        // 每帧检查鼠标位置并更新输入
+        function updateMouseControl() {
+            if (!mouseActive || gameState !== 'playing') return;
+            
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const dx = mouseX - centerX;
+            const dy = mouseY - centerY;
+            
+            const threshold = 30;
+            Input.right = dx > threshold;
+            Input.left = dx < -threshold;
+            Input.down = dy > threshold;
+            Input.up = dy < -threshold;
+        }
+
+        // 点击释放技能
+        canvas.addEventListener('mousedown', function(e) {
+            if (e.button === 0) { // 左键
+                activateSkill();
+            }
+        });
+
+        // ==================== 性能优化 ====================
+
+        // 对象池系统用于粒子
+        const particlePool = [];
+        const maxParticles = 200;
+
+        function getParticle(x, y, vx, vy, size, color, life) {
+            if (particlePool.length > 0) {
+                const p = particlePool.pop();
+                p.x = x;
+                p.y = y;
+                p.vx = vx;
+                p.vy = vy;
+                p.size = size;
+                p.color = color;
+                p.life = life;
+                p.maxLife = life;
+                return p;
+            }
+            return new Particle(x, y, vx, vy, size, color, life);
+        }
+
+        function returnParticle(p) {
+            if (particlePool.length < maxParticles) {
+                particlePool.push(p);
+            }
+        }
+
+        // 修改 Particle update 使用对象池
+        Particle.prototype.update = function() {
+            this.x += this.vx;
+            this.y += this.vy;
+            this.vy += 0.1;
+            this.life--;
+            if (this.life <= 0) {
+                returnParticle(this);
+            }
+        };
+
+        // ==================== 音效系统（可选） ====================
+
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new AudioContext();
+            }
+        }
+
+        function playSound(type) {
+            if (!audioCtx) return;
+            
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            switch(type) {
+                case 'eat':
+                    oscillator.frequency.setValueAtTime(800, audioCtx.currentTime);
+                    oscillator.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.1);
+                    gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                    oscillator.start(audioCtx.currentTime);
+                    oscillator.stop(audioCtx.currentTime + 0.1);
+                    break;
+                case 'evolve':
+                    oscillator.frequency.setValueAtTime(400, audioCtx.currentTime);
+                    oscillator.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.5);
+                    gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+                    oscillator.type = 'sine';
+                    oscillator.start(audioCtx.currentTime);
+                    oscillator.stop(audioCtx.currentTime + 0.5);
+                    break;
+                case 'damage':
+                    oscillator.frequency.setValueAtTime(200, audioCtx.currentTime);
+                    oscillator.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.2);
+                    gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+                    oscillator.type = 'sawtooth';
+                    oscillator.start(audioCtx.currentTime);
+                    oscillator.stop(audioCtx.currentTime + 0.2);
+                    break;
+                case 'skill':
+                    oscillator.frequency.setValueAtTime(600, audioCtx.currentTime);
+                    oscillator.frequency.exponentialRampToValueAtTime(900, audioCtx.currentTime + 0.3);
+                    gainNode.gain.setValueAtTime(0.4, audioCtx.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                    oscillator.type = 'square';
+                    oscillator.start(audioCtx.currentTime);
+                    oscillator.stop(audioCtx.currentTime + 0.3);
+                    break;
+            }
+        }
+
+        // 在相应位置调用音效
+        const originalEat = Player.prototype.eat;
+        Player.prototype.eat = function(fish) {
+            playSound('eat');
+            originalEat.call(this, fish);
+        };
+
+        const originalEvolve = Player.prototype.evolve;
+        Player.prototype.evolve = function() {
+            playSound('evolve');
+            originalEvolve.call(this);
+        };
+
+        const originalTakeDamage = Player.prototype.takeDamage;
+        Player.prototype.takeDamage = function() {
+            const result = originalTakeDamage.call(this);
+            if (result) playSound('damage');
+            return result;
+        };
+
+        const originalActivateSkill = activateSkill;
+        activateSkill = function() {
+            const result = originalActivateSkill();
+            if (result !== false) playSound('skill');
+        };
+
+        // ==================== 游戏初始化 ====================
+
+        // 页面加载完成后初始化
+        window.addEventListener('load', function() {
+            console.log('游戏加载完成');
+            
+            // 预渲染一些静态元素
+            const preload = document.createElement('div');
+            preload.style.position = 'absolute';
+            preload.style.left = '-9999px';
+            document.body.appendChild(preload);
+            
+            // 初始化音频（需要用户交互）
+            document.addEventListener('click', initAudio, { once: true });
+            document.addEventListener('touchstart', initAudio, { once: true });
+            
+            // 添加鼠标控制更新到游戏循环
+            const originalUpdateGame = updateGame;
+            updateGame = function() {
+                updateMouseControl();
+                originalUpdateGame();
+            };
+        });
+
+        // 防止页面卸载时内存泄漏
+        window.addEventListener('beforeunload', function() {
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+        });
+
+        // ==================== 调试功能（开发用） ====================
+
+        // 按数字键1-6直接进化到对应阶段
+        window.addEventListener('keydown', function(e) {
+            if (gameState !== 'playing') return;
+            
+            // 调试快捷键（按住Shift）
+            if (e.shiftKey) {
+                switch(e.key) {
+                    case '1': case '2': case '3': case '4': case '5': case '6':
+                        const targetStage = parseInt(e.key) - 1;
+                        if (targetStage < EVOLUTION_STAGES.length) {
+                            player.stage = targetStage;
+                            const stage = EVOLUTION_STAGES[targetStage];
+                            player.size = stage.size;
+                            player.color = stage.color;
+                            player.speed = stage.speed;
+                            player.evoProgress = 0;
+                            player.evoThreshold = 100 * Math.pow(1.5, targetStage);
+                            updateHUD();
+                            createEvolutionEffect(player.x, player.y);
+                        }
+                        break;
+                    case '0':
+                        // 满级
+                        player.evoProgress = player.evoThreshold;
+                        player.evolve();
+                        break;
+                    case 'S':
+                        // 加1000分
+                        score += 1000;
+                        updateHUD();
+                        break;
+                }
+            }
+        });
+
+        // 暴露全局变量供调试
+        window.gameDebug = {
+            get player() { return player; },
+            get fishes() { return fishes; },
+            get particles() { return particles; },
+            get gameState() { return gameState; },
+            get score() { return score; },
+            spawnFish: spawnFish,
+            createEvolutionEffect: createEvolutionEffect,
+            EVOLUTION_STAGES: EVOLUTION_STAGES,
+            FISH_TYPES: FISH_TYPES
+        };
+
+        console.log('深海吞噬者 - 进化之路 加载完成！');
+        console.log('调试命令: gameDebug');
+    </script>
+</body>
+</html>
