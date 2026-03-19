@@ -4,22 +4,50 @@
   <meta charset="UTF-8">
   <title>我的小游戏库</title>
   <style>
-    body { font-family: Arial; text-align: center; margin-top: 50px; }
-    .game-btn { display: block; margin: 20px auto; padding: 15px 30px; font-size: 20px; cursor: pointer; background: #4CAF50; color: white; border: none; border-radius: 8px; }
-    .game-btn:hover { background: #45a049; }
+    body {
+      font-family: Arial;
+      text-align: center;
+      margin: 50px auto;
+      max-width: 900px;
+    }
+    .game-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      justify-content: center;
+      margin-top: 30px;
+    }
+    .game-btn {
+      padding: 15px 30px;
+      font-size: 20px;
+      cursor: pointer;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      white-space: nowrap;
+    }
+    .game-btn:hover {
+      background: #45a049;
+    }
   </style>
 </head>
 <body>
-  <h1>🎮 欢迎来到我的小游戏库</h1
-<button class="game-btn" onclick="location.href='比大小游戏.html'">比大小游戏</button>
-  <button class="game-btn" onclick="location.href='坦克大战.html'">坦克大战</button>
-  <button class="game-btn" onclick="location.href='极速赛车.html'">极速赛车</button>
-   <button class="game-btn" onclick="location.href='霸王龙对决汽车侠.html'">霸王龙对决汽车侠</button>
-  <button class="game-btn" onclick="location.href='深海吞噬者.html'">深海吞噬者</button>
-  <button class="game-btn" onclick="location.href='贪吃蛇snake.html'">贪吃蛇</button>
-  <button class="game-btn" onclick="location.href='俄罗斯方块.html'">俄罗斯方块</button>
-  <button class="game-btn" onclick="location.href='飞机大战.html'">飞机大战</button>
-  <button class="game-btn" onclick="location.href='半夜偷玩手机.html'">半夜偷玩手机</button>
-  <button class="game-btn" onclick="location.href='超级儿童积木.html'">超级儿童积木</button> 
+
+  <h1>🎮 欢迎来到我的小游戏库</h1>
+
+  <div class="game-list">
+    <button class="game-btn" onclick="location.href='比大小游戏.html'">比大小游戏</button>
+    <button class="game-btn" onclick="location.href='坦克大战.html'">坦克大战</button>
+    <button class="game-btn" onclick="location.href='极速赛车.html'">极速赛车</button>
+    <button class="game-btn" onclick="location.href='霸王龙对决汽车侠.html'">霸王龙对决汽车侠</button>
+    <button class="game-btn" onclick="location.href='深海吞噬者.html'">深海吞噬者</button>
+    <button class="game-btn" onclick="location.href='贪吃蛇snake.html'">贪吃蛇</button>
+    <button class="game-btn" onclick="location.href='俄罗斯方块.html'">俄罗斯方块</button>
+    <button class="game-btn" onclick="location.href='飞机大战.html'">飞机大战</button>
+    <button class="game-btn" onclick="location.href='半夜偷玩手机.html'">半夜偷玩手机</button>
+    <button class="game-btn" onclick="location.href='超级儿童积木.html'">超级儿童积木</button>
+  </div>
+
 </body>
 </html>
