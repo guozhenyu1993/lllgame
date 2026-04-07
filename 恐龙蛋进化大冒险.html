@@ -1,0 +1,903 @@
+
+html_code = '''<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>恐龙蛋进化大冒险</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: 'ZCOOL KuaiLe', cursive;
+            overflow: hidden;
+        }
+        
+        #gameContainer {
+            position: relative;
+            border-radius: 20px;
+            box-shadow: 0 0 50px rgba(233, 196, 106, 0.3), 0 0 100px rgba(231, 111, 81, 0.2);
+            overflow: hidden;
+        }
+        
+        canvas {
+            display: block;
+            background: linear-gradient(180deg, #87CEEB 0%, #E0F6FF 50%, #90EE90 100%);
+            border-radius: 20px;
+        }
+        
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #2d3436;
+            font-size: 24px;
+            text-shadow: 2px 2px 4px rgba(255,255,255,0.8);
+            z-index: 10;
+        }
+        
+        #evolutionBar {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 200px;
+            height: 30px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 15px;
+            overflow: hidden;
+            border: 3px solid #fff;
+            z-index: 10;
+        }
+        
+        #evolutionProgress {
+            height: 100%;
+            background: linear-gradient(90deg, #f39c12, #e74c3c, #9b59b6);
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 12px;
+        }
+        
+        #evolutionText {
+            position: absolute;
+            top: 55px;
+            right: 20px;
+            color: #fff;
+            font-size: 18px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+        
+        #startScreen, #gameOverScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            z-index: 20;
+            border-radius: 20px;
+        }
+        
+        #gameOverScreen {
+            display: none;
+        }
+        
+        h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px #f39c12;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        .btn {
+            padding: 15px 40px;
+            font-size: 24px;
+            font-family: 'ZCOOL KuaiLe', cursive;
+            background: linear-gradient(45deg, #f39c12, #e74c3c);
+            border: none;
+            border-radius: 50px;
+            color: #fff;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 5px 20px rgba(231, 76, 60, 0.4);
+            margin: 10px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-3px) scale(1.1);
+            box-shadow: 0 10px 30px rgba(231, 76, 60, 0.6);
+        }
+        
+        .instructions {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 18px;
+            color: #ddd;
+            line-height: 1.8;
+        }
+        
+        .evolution-indicator {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            z-index: 10;
+        }
+        
+        .evo-stage {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 3px solid #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            opacity: 0.3;
+            transition: all 0.3s;
+        }
+        
+        .evo-stage.active {
+            opacity: 1;
+            transform: scale(1.2);
+            box-shadow: 0 0 20px currentColor;
+        }
+        
+        .score-popup {
+            position: absolute;
+            color: #f39c12;
+            font-size: 24px;
+            font-weight: bold;
+            pointer-events: none;
+            animation: floatUp 1s ease-out forwards;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        @keyframes floatUp {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-50px) scale(1.5); }
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="1000" height="600"></canvas>
+        
+        <div id="ui">
+            <div>得分: <span id="score">0</span></div>
+            <div>生命: <span id="lives">❤️❤️❤️</span></div>
+        </div>
+        
+        <div id="evolutionBar">
+            <div id="evolutionProgress"></div>
+        </div>
+        <div id="evolutionText">进化阶段: 恐龙蛋</div>
+        
+        <div class="evolution-indicator">
+            <div class="evo-stage active" style="background: #f39c12; color: #fff;">🥚</div>
+            <div class="evo-stage" style="background: #e74c3c; color: #fff;">🦎</div>
+            <div class="evo-stage" style="background: #9b59b6; color: #fff;">🦖</div>
+            <div class="evo-stage" style="background: #3498db; color: #fff;">🐉</div>
+            <div class="evo-stage" style="background: #f1c40f; color: #000;">👑</div>
+        </div>
+        
+        <div id="startScreen">
+            <h1>🥚 恐龙蛋进化大冒险 🥚</h1>
+            <button class="btn" onclick="startGame()">开始游戏</button>
+            <div class="instructions">
+                <p>🎮 使用方向键 ← → 移动，↑ 跳跃</p>
+                <p>🦎 吃掉小恐龙来进化</p>
+                <p>⚠️ 避开大恐龙和陷阱</p>
+                <p>⭐ 进化到最终形态成为恐龙之王！</p>
+            </div>
+        </div>
+        
+        <div id="gameOverScreen">
+            <h1 id="gameOverTitle">游戏结束</h1>
+            <p style="font-size: 24px; margin: 20px;">最终得分: <span id="finalScore">0</span></p>
+            <p style="font-size: 20px; margin: 10px; color: #f39c12;">达到进化阶段: <span id="finalStage">恐龙蛋</span></p>
+            <button class="btn" onclick="restartGame()">再次挑战</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // 游戏状态
+        let gameRunning = false;
+        let score = 0;
+        let lives = 3;
+        let evolutionStage = 0;
+        let evolutionProgress = 0;
+        let evolutionThresholds = [100, 300, 600, 1000];
+        let stageNames = ['恐龙蛋', '小恐龙', '迅猛龙', '霸王龙', '恐龙之王'];
+        let stageEmojis = ['🥚', '🦎', '🦖', '🐉', '👑'];
+        
+        // 玩家对象
+        let player = {
+            x: 100,
+            y: 400,
+            width: 50,
+            height: 50,
+            vx: 0,
+            vy: 0,
+            speed: 3.75,
+            jumpPower: 15,
+            grounded: false,
+            facingRight: true,
+            invincible: false,
+            invincibleTime: 0
+        };
+        
+        // 游戏对象数组
+        let enemies = [];
+        let foods = [];
+        let particles = [];
+        let platforms = [];
+        let powerUps = [];
+        
+        // 相机
+        let camera = { x: 0, y: 0 };
+        
+        // 输入处理
+        const keys = {};
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            if (e.key === 'ArrowUp' && player.grounded) {
+                player.vy = -player.jumpPower;
+                player.grounded = false;
+                createJumpParticles();
+            }
+        });
+        document.addEventListener('keyup', (e) => keys[e.key] = false);
+        
+        // 创建粒子效果
+        function createParticles(x, y, color, count = 10) {
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 10,
+                    vy: (Math.random() - 0.5) * 10,
+                    life: 1,
+                    color: color,
+                    size: Math.random() * 5 + 2
+                });
+            }
+        }
+        
+        function createJumpParticles() {
+            for (let i = 0; i < 5; i++) {
+                particles.push({
+                    x: player.x + player.width / 2,
+                    y: player.y + player.height,
+                    vx: (Math.random() - 0.5) * 5,
+                    vy: Math.random() * 3,
+                    life: 0.5,
+                    color: '#8B4513',
+                    size: 4
+                });
+            }
+        }
+        
+        // 生成平台
+     function generatePlatforms() {
+    platforms = [];
+    
+    // 主地面 - 连续不断的基础地面
+    for (let i = 0; i < 200; i++) {  // 增加数量到200，确保足够长
+        platforms.push({
+            x: i * 200,
+            y: 500,
+            width: 200,
+            height: 100,
+            type: 'ground'
+        });
+    }
+    
+    // 增加一些地面上的平台/障碍物，让地形更有变化
+    // 台阶式平台 - 每隔一段距离出现
+    for (let i = 1; i < 50; i++) {
+        let baseX = i * 800 + Math.random() * 200;
+        
+        // 单层平台（小土坡）
+        platforms.push({
+            x: baseX,
+            y: 450,  // 比地面高50
+            width: 80,
+            height: 50,
+            type: 'platform'
+        });
+        
+        // 双层平台（偶尔出现）
+        if (i % 3 === 0) {
+            platforms.push({
+                x: baseX + 100,
+                y: 400,  // 更高一层
+                width: 60,
+                height: 100,
+                type: 'platform'
+            });
+        }
+        
+        // 凹陷陷阱（地面降低）
+        if (i % 5 === 0) {
+            // 在地面中间制造缺口，需要跳跃
+            // 通过不生成那段地面来实现，但这里我们用降低的平台代替
+            platforms.push({
+                x: baseX + 400,
+                y: 550,  // 地面降低
+                width: 100,
+                height: 50,
+                type: 'pit'
+            });
+        }
+    }
+    
+    // 增加一些悬浮的小平台（不高，只是地面上的点缀）
+    for (let i = 0; i < 30; i++) {
+        let x = 1500 + i * 600 + Math.random() * 300;
+        platforms.push({
+            x: x,
+            y: 480,  // 只比地面高20，很容易跳上去
+            width: 60,
+            height: 20,
+            type: 'step'
+        });
+    }
+}
+        
+        // 生成敌人
+        function spawnEnemy() {
+            const stage = Math.min(evolutionStage, 3);
+            const types = [
+                { emoji: '🐜', speed: 2, hp: 1, score: 10, size: 30 },
+                { emoji: '🦗', speed: 3, hp: 1, score: 15, size: 35 },
+                { emoji: '🐁', speed: 4, hp: 2, score: 25, size: 40 },
+                { emoji: '🦎', speed: 3, hp: 3, score: 40, size: 50 }
+            ];
+            
+            const type = types[Math.floor(Math.random() * (stage + 1))];
+            
+            enemies.push({
+                x: camera.x + canvas.width + 50,
+                y: 460,
+                width: type.size,
+                height: type.size,
+                vx: -type.speed - Math.random() * 2,
+                vy: 0,
+                emoji: type.emoji,
+                hp: type.hp,
+                maxHp: type.hp,
+                score: type.score,
+                bounce: 0
+            });
+        }
+        
+        // 生成食物
+        function spawnFood() {
+            const foods_list = ['🍖', '🥩', '🍗', '🦴', '🐟'];
+            const values = [10, 15, 20, 25, 30];
+            const idx = Math.floor(Math.random() * foods_list.length);
+            
+            foods.push({
+                x: camera.x + canvas.width + Math.random() * 500,
+                y: 430,
+                width: 30,
+                height: 30,
+                emoji: foods_list[idx],
+                value: values[idx],
+                float: 0
+            });
+        }
+        
+        // 生成道具
+        function spawnPowerUp() {
+            const types = [
+                { emoji: '❤️', type: 'heal', effect: 1 },
+                { emoji: '⚡', type: 'speed', effect: 2 },
+                { emoji: '🛡️', type: 'shield', effect: 5 }
+            ];
+            const power = types[Math.floor(Math.random() * types.length)];
+            
+            powerUps.push({
+                x: camera.x + canvas.width + Math.random() * 800,
+                y: 440,
+                width: 40,
+                height: 40,
+                emoji: power.emoji,
+                type: power.type,
+                effect: power.effect,
+                float: 0
+            });
+        }
+        
+        // 更新游戏
+        function update() {
+            if (!gameRunning) return;
+            
+            // 玩家移动
+            if (keys['ArrowLeft']) {
+                player.vx = -player.speed;
+                player.facingRight = false;
+            } else if (keys['ArrowRight']) {
+                player.vx = player.speed;
+                player.facingRight = true;
+            } else {
+                player.vx *= 0.8;
+            }
+            
+            // 重力
+            player.vy += 0.5;
+            
+            // 更新位置
+            player.x += player.vx;
+            player.y += player.vy;
+            
+            // 平台碰撞
+            player.grounded = false;
+            platforms.forEach(plat => {
+                if (player.x < plat.x + plat.width &&
+                    player.x + player.width > plat.x &&
+                    player.y + player.height > plat.y &&
+                    player.y + player.height < plat.y + plat.height + 20 &&
+                    player.vy >= 0) {
+                    player.y = plat.y - player.height;
+                    player.vy = 0;
+                    player.grounded = true;
+                }
+            });
+            
+            // 边界检查
+            if (player.y > canvas.height) {
+                takeDamage();
+                player.y = 100;
+                player.vy = 0;
+            }
+            
+            // 更新相机
+            camera.x = player.x - canvas.width / 3;
+            if (camera.x < 0) camera.x = 0;
+            
+            // 更新敌人
+            enemies.forEach((enemy, index) => {
+                enemy.x += enemy.vx;
+                enemy.bounce += 0.2;
+                enemy.y += Math.sin(enemy.bounce) * 0.5;
+                
+                // 碰撞检测
+                if (!player.invincible &&
+                    player.x < enemy.x + enemy.width &&
+                    player.x + player.width > enemy.x &&
+                    player.y < enemy.y + enemy.height &&
+                    player.y + player.height > enemy.y) {
+                    
+                    if (player.vy > 0 && player.y + player.height < enemy.y + enemy.height / 2) {
+                        // 踩死敌人
+                        enemy.hp--;
+                        player.vy = -10;
+                        createParticles(enemy.x + enemy.width/2, enemy.y + enemy.height/2, '#e74c3c', 15);
+                        
+                        if (enemy.hp <= 0) {
+                            addScore(enemy.score, enemy.x, enemy.y);
+                            enemies.splice(index, 1);
+                            evolutionProgress += enemy.score;
+                            checkEvolution();
+                        }
+                    } else {
+                        takeDamage();
+                    }
+                }
+                
+                // 移除屏幕外敌人
+                if (enemy.x < camera.x - 100) {
+                    enemies.splice(index, 1);
+                }
+            });
+            
+            // 更新食物
+            foods.forEach((food, index) => {
+                food.float += 0.1;
+                food.y += Math.sin(food.float) * 0.5;
+                
+                if (player.x < food.x + food.width &&
+                    player.x + player.width > food.x &&
+                    player.y < food.y + food.height &&
+                    player.y + player.height > food.y) {
+                    
+                    addScore(food.value, food.x, food.y);
+                    evolutionProgress += food.value;
+                    createParticles(food.x + food.width/2, food.y + food.height/2, '#f39c12', 8);
+                    foods.splice(index, 1);
+                    checkEvolution();
+                }
+                
+                if (food.x < camera.x - 100) {
+                    foods.splice(index, 1);
+                }
+            });
+            
+            // 更新道具
+            powerUps.forEach((power, index) => {
+                power.float += 0.1;
+                power.y += Math.sin(power.float) * 0.3;
+                
+                if (player.x < power.x + power.width &&
+                    player.x + player.width > power.x &&
+                    player.y < power.y + power.height &&
+                    player.y + player.height > power.y) {
+                    
+                    applyPowerUp(power);
+                    createParticles(power.x + power.width/2, power.y + power.height/2, '#3498db', 10);
+                    powerUps.splice(index, 1);
+                }
+                
+                if (power.x < camera.x - 100) {
+                    powerUps.splice(index, 1);
+                }
+            });
+            
+            // 更新粒子
+            particles.forEach((p, index) => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.3;
+                p.life -= 0.02;
+                if (p.life <= 0) particles.splice(index, 1);
+            });
+            
+            // 无敌时间
+            if (player.invincible) {
+                player.invincibleTime--;
+                if (player.invincibleTime <= 0) {
+                    player.invincible = false;
+                }
+            }
+            
+            // 生成新对象
+            if (Math.random() < 0.02 + evolutionStage * 0.005) spawnEnemy();
+            if (Math.random() < 0.03) spawnFood();
+            if (Math.random() < 0.005) spawnPowerUp();
+            
+            // 更新UI
+            updateUI();
+        }
+        
+        // 应用道具
+        function applyPowerUp(power) {
+            switch(power.type) {
+                case 'heal':
+                    lives = Math.min(lives + power.effect, 5);
+                    showFloatingText('+' + power.effect + ' ❤️', player.x, player.y - 50);
+                    break;
+                case 'speed':
+                    player.speed *= power.effect;
+                    showFloatingText('⚡ 加速！', player.x, player.y - 50);
+                    setTimeout(() => player.speed /= power.effect, 5000);
+                    break;
+                case 'shield':
+                    player.invincible = true;
+                    player.invincibleTime = 300;
+                    showFloatingText('🛡️ 无敌！', player.x, player.y - 50);
+                    break;
+            }
+        }
+        
+        // 受到伤害
+        function takeDamage() {
+            if (player.invincible) return;
+            
+            lives--;
+            player.invincible = true;
+            player.invincibleTime = 120;
+            player.vy = -10;
+            player.vx = player.facingRight ? -10 : 10;
+            
+            createParticles(player.x + player.width/2, player.y + player.height/2, '#e74c3c', 20);
+            
+            if (lives <= 0) {
+                gameOver();
+            }
+        }
+        
+        // 检查进化
+        function checkEvolution() {
+    // 只有当前阶段小于最大阶段（4，即恐龙之王）时才检查进化
+    if (evolutionStage < 4 && evolutionProgress >= evolutionThresholds[evolutionStage]) {
+        
+        evolutionStage++;
+        evolutionProgress = 0;
+        
+        // 进化效果
+        createParticles(player.x + player.width/2, player.y + player.height/2, '#9b59b6', 30);
+        showFloatingText('✨ 进化！' + stageNames[evolutionStage] + '！', player.x, player.y - 100);
+        
+        // 更新玩家属性
+        player.width = 50 + evolutionStage * 10;
+        player.height = 50 + evolutionStage * 10;
+        player.speed = 3.75 + evolutionStage * 0.75;
+        player.jumpPower = 15 + evolutionStage * 2;
+        
+        // 满血奖励
+        lives = Math.min(lives + 1, 5);
+        
+        // 更新进化指示器
+        document.querySelectorAll('.evo-stage').forEach((el, idx) => {
+            el.classList.toggle('active', idx <= evolutionStage);
+        });
+        
+        // 如果进化到最终阶段（恐龙之王），显示特殊提示但不结束游戏
+        if (evolutionStage === 4) {
+            showFloatingText('👑 你已成为恐龙之王！继续征服！', player.x, player.y - 150);
+            // 可以在这里添加额外奖励，比如大量分数
+            score += 500;
+            showFloatingText('+500  bonus!', player.x, player.y - 180);
+        }
+    }
+}
+        
+        // 显示浮动文字
+        function showFloatingText(text, x, y) {
+            const el = document.createElement('div');
+            el.className = 'score-popup';
+            el.textContent = text;
+            el.style.left = (x - camera.x + canvas.offsetLeft) + 'px';
+            el.style.top = (y + canvas.offsetTop) + 'px';
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 1000);
+        }
+        
+        // 添加分数
+        function addScore(points, x, y) {
+            score += points;
+            showFloatingText('+' + points, x, y);
+        }
+        
+        // 更新UI
+        function updateUI() {
+            document.getElementById('score').textContent = score;
+            document.getElementById('lives').textContent = '❤️'.repeat(lives);
+            document.getElementById('evolutionText').textContent = '进化阶段: ' + stageNames[evolutionStage];
+            
+            let progress = 0;
+            if (evolutionStage < evolutionThresholds.length) {
+                progress = (evolutionProgress / evolutionThresholds[evolutionStage]) * 100;
+            } else {
+                progress = 100;
+            }
+            document.getElementById('evolutionProgress').style.width = progress + '%';
+        }
+        
+        // 绘制游戏
+        function draw() {
+            // 清空画布
+            ctx.fillStyle = 'rgba(135, 206, 235, 0.3)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.save();
+            ctx.translate(-camera.x, -camera.y);
+            
+            // 绘制背景装饰
+            for (let i = 0; i < 20; i++) {
+                let x = i * 500 - (camera.x * 0.3) % 500;
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+                ctx.beginPath();
+                ctx.arc(x, 100 + Math.sin(i) * 50, 30 + Math.sin(i * 2) * 10, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            // 绘制平台
+platforms.forEach(plat => {
+    if (plat.type === 'ground') {
+        // 地面 - 草地+泥土
+        ctx.fillStyle = '#2ecc71';
+        ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
+        ctx.fillStyle = '#8B4513';
+        ctx.fillRect(plat.x, plat.y + 10, plat.width, plat.height - 10);
+        // 草边装饰
+        ctx.fillStyle = '#27ae60';
+        for (let i = 0; i < plat.width; i += 20) {
+            ctx.beginPath();
+            ctx.moveTo(plat.x + i, plat.y + 10);
+            ctx.lineTo(plat.x + i + 10, plat.y - 5);
+            ctx.lineTo(plat.x + i + 20, plat.y + 10);
+            ctx.fill();
+        }
+    } else if (plat.type === 'platform' || plat.type === 'step') {
+        // 平台 - 石头或土坡样式
+        ctx.fillStyle = '#95a5a6';  // 灰色石头
+        ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
+        // 顶部草皮
+        ctx.fillStyle = '#2ecc71';
+        ctx.fillRect(plat.x, plat.y, plat.width, 5);
+        // 石头纹理
+        ctx.fillStyle = '#7f8c8d';
+        ctx.fillRect(plat.x + 5, plat.y + 10, plat.width - 10, plat.height - 15);
+    } else if (plat.type === 'pit') {
+        // 凹陷陷阱 - 深色泥土
+        ctx.fillStyle = '#5d4037';
+        ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
+        ctx.fillStyle = '#3e2723';
+        ctx.fillRect(plat.x + 5, plat.y + 5, plat.width - 10, plat.height - 10);
+    }
+});
+            
+            // 绘制食物
+            foods.forEach(food => {
+                ctx.font = '30px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(food.emoji, food.x + food.width/2, food.y + food.height/2 + 10);
+            });
+            
+            // 绘制道具
+            powerUps.forEach(power => {
+                ctx.font = '35px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(power.emoji, power.x + power.width/2, power.y + power.height/2 + 12);
+                // 光环效果
+                ctx.strokeStyle = 'rgba(52, 152, 219, 0.5)';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(power.x + power.width/2, power.y + power.height/2, 25 + Math.sin(power.float) * 5, 0, Math.PI * 2);
+                ctx.stroke();
+            });
+            
+            // 绘制敌人
+            enemies.forEach(enemy => {
+                ctx.font = enemy.width + 'px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(enemy.emoji, enemy.x + enemy.width/2, enemy.y + enemy.height/2 + enemy.width/3);
+                
+                // 血条
+                if (enemy.hp < enemy.maxHp) {
+                    ctx.fillStyle = '#e74c3c';
+                    ctx.fillRect(enemy.x, enemy.y - 10, enemy.width, 5);
+                    ctx.fillStyle = '#2ecc71';
+                    ctx.fillRect(enemy.x, enemy.y - 10, enemy.width * (enemy.hp / enemy.maxHp), 5);
+                }
+            });
+            
+            // 绘制玩家
+            ctx.save();
+            ctx.translate(player.x + player.width/2, player.y + player.height/2);
+            
+            // 无敌闪烁效果
+            if (player.invincible && Math.floor(player.invincibleTime / 5) % 2 === 0) {
+                ctx.globalAlpha = 0.5;
+            }
+            
+            // 根据方向翻转
+            if (!player.facingRight) {
+                ctx.scale(-1, 1);
+            }
+            
+            // 绘制玩家（根据进化阶段）
+            ctx.font = player.width + 'px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            // 添加发光效果
+            ctx.shadowColor = '#f39c12';
+            ctx.shadowBlur = 20;
+            ctx.fillText(stageEmojis[evolutionStage], 0, 0);
+            ctx.shadowBlur = 0;
+            
+            ctx.restore();
+            
+            // 绘制粒子
+            particles.forEach(p => {
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+            
+            ctx.restore();
+        }
+        
+        // 游戏循环
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // 开始游戏
+        function startGame() {
+            document.getElementById('startScreen').style.display = 'none';
+            gameRunning = true;
+            resetGame();
+            gameLoop();
+        }
+        
+        // 重置游戏
+        function resetGame() {
+            score = 0;
+            lives = 3;
+            evolutionStage = 0;
+            evolutionProgress = 0;
+            player.x = 100;
+            player.y = 400;
+            player.vx = 0;
+            player.vy = 0;
+            player.width = 50;
+            player.height = 50;
+            player.speed = 5;
+            player.jumpPower = 15;
+            player.invincible = false;
+            
+            enemies = [];
+            foods = [];
+            particles = [];
+            powerUps = [];
+            
+            generatePlatforms();
+            
+            document.querySelectorAll('.evo-stage').forEach((el, idx) => {
+                el.classList.toggle('active', idx === 0);
+            });
+        }
+        
+        // 游戏结束
+        function gameOver() {
+            gameRunning = false;
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('finalStage').textContent = stageNames[evolutionStage];
+            document.getElementById('gameOverTitle').textContent = '游戏结束';
+            document.getElementById('gameOverScreen').style.display = 'flex';
+        }
+        
+        // 重新开始
+        function restartGame() {
+            document.getElementById('gameOverScreen').style.display = 'none';
+            gameRunning = true;
+            resetGame();
+        }
+        
+        // 初始绘制
+        generatePlatforms();
+        draw();
+    </script>
+</body>
+</html>'''
+
+# 保存文件
+with open('/mnt/kimi/output/dino_evolution_game.html', 'w', encoding='utf-8') as f:
+    f.write(html_code)
+
+print("✅ 游戏已创建！")
+print("📁 文件位置: /mnt/kimi/output/dino_evolution_game.html")
+print("\n🎮 游戏特性:")
+print("   • 5个进化阶段: 🥚恐龙蛋 → 🦎小恐龙 → 🦖迅猛龙 → 🐉霸王龙 → 👑恐龙之王")
+print("   • 横版跑酷玩法，自动卷轴相机")
+print("   • 吃掉食物和敌人来积累进化能量")
+print("   • 道具系统: ❤️回血 ⚡加速 🛡️无敌")
+print("   • 粒子特效和动画效果")
+print("   • 跳跃踩踏攻击机制")
