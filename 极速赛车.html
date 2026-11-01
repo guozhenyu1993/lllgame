@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Neon Velocity 3D - 极速霓虹赛车</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link rel="stylesheet" href="./tailwind.min.css">
+    <script src="./three.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
         
@@ -56,6 +56,22 @@
             overflow: hidden;
         }
         
+        /* 画面升级：暗角 + 速度线 + 标题霓虹 */
+        #vignette {
+            position: absolute; inset: 0; z-index: 4; pointer-events: none;
+            background: radial-gradient(ellipse at 50% 55%, rgba(0,0,0,0) 42%, rgba(0,0,0,.62) 100%);
+        }
+        #speedlines {
+            position: absolute; inset: 0; z-index: 5; pointer-events: none; opacity: 0;
+            transition: opacity .15s linear; mix-blend-mode: screen;
+            background: repeating-linear-gradient(90deg,
+                rgba(180,240,255,.10) 0 2px, transparent 2px 11px);
+        }
+        .title-neon {
+            color: #9df7ff; font-weight: 900; font-style: italic;
+            text-shadow: 0 0 12px rgba(0,255,255,.9), 0 0 38px rgba(160,60,255,.85), 0 0 72px rgba(255,46,166,.6);
+        }
+
         .scanline {
             position: absolute;
             top: 0;
@@ -93,6 +109,8 @@
 
     <!-- Game Canvas -->
     <div id="canvas-container"></div>
+    <div id="vignette"></div>
+    <div id="speedlines"></div>
     <div class="scanline"></div>
 
     <!-- HUD -->
@@ -106,6 +124,12 @@
                 <div class="w-64 h-4 speed-bar-container rounded">
                     <div id="speed-bar" class="h-full speed-bar rounded" style="width: 0%"></div>
                 </div>
+
+                <div class="w-64 h-2 mt-2 rounded overflow-hidden" style="background: rgba(0,0,0,.65); border: 1px solid rgba(255,46,166,.45);">
+                    <div id="nitro-bar" class="h-full" style="width: 100%; background: linear-gradient(90deg, #ff2ea6, #ffd166); box-shadow: 0 0 14px rgba(255,46,166,.8);"></div>
+                </div>
+                <div class="text-[11px] tracking-[0.3em] text-pink-300 opacity-80">NITRO · SHIFT</div>
+                <div id="offtrack" class="mt-2 text-sm font-bold text-red-400 tracking-widest" style="opacity:0; transition:.2s">⚠ 偏离赛道</div>
             </div>
             
             <div class="text-center">
@@ -171,7 +195,7 @@
 
     <!-- Start Screen -->
     <div id="start-screen" class="absolute inset-0 z-30 flex flex-col items-center justify-center">
-        <h1 class="text-7xl md:text-9xl font-black italic mb-4 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-500 to-pink-500" style="filter: drop-shadow(0 0 20px rgba(0,255,255,0.5));">
+        <h1 class="text-7xl md:text-9xl mb-4 title-neon" style="filter: drop-shadow(0 0 24px rgba(0,255,255,0.45));">
             NEON<br>VELOCITY
         </h1>
         <p class="text-cyan-300 text-xl mb-12 tracking-[0.5em] uppercase pulse">3D Racing Simulation</p>
@@ -218,7 +242,9 @@
             startTime: 0,
             currentTime: 0,
             keys: {},
-            carColor: CONFIG.colors.car
+            carColor: CONFIG.colors.car,
+            nitro: 100,
+            boosting: false
         };
 
         // Three.js Variables
@@ -229,7 +255,7 @@
         let clock = new THREE.Clock();
         let carVelocity = new THREE.Vector3();
         let carDirection = new THREE.Vector3(0, 0, 1);
-        let cameraOffset = new THREE.Vector3(0, 5, -10);
+        let cameraOffset = new THREE.Vector3(0, 6.5, -13);
         
         // Minimap
         let minimapCanvas, minimapCtx;
@@ -243,12 +269,72 @@
             lightningTimer: 0
         };
 
+        function makeSkyTexture(){
+            const c = document.createElement('canvas');
+            c.width = 32; c.height = 1024;
+            const g = c.getContext('2d');
+            const grad = g.createLinearGradient(0, 0, 0, 1024);
+            grad.addColorStop(0.00, '#04010c');
+            grad.addColorStop(0.34, '#150833');
+            grad.addColorStop(0.56, '#33104f');
+            grad.addColorStop(0.74, '#5d1763');
+            grad.addColorStop(0.86, '#2a0b33');
+            grad.addColorStop(1.00, '#0b0414');
+            g.fillStyle = grad;
+            g.fillRect(0, 0, 32, 1024);
+
+            // 叠加细噪点，去掉渐变横纹
+            const img = g.getImageData(0, 0, 32, 1024);
+            for (let i = 0; i < img.data.length; i += 4){
+                const n = (Math.random() - 0.5) * 6;
+                img.data[i] = Math.max(0, Math.min(255, img.data[i] + n));
+                img.data[i + 1] = Math.max(0, Math.min(255, img.data[i + 1] + n));
+                img.data[i + 2] = Math.max(0, Math.min(255, img.data[i + 2] + n));
+            }
+            g.putImageData(img, 0, 0);
+
+            const tex = new THREE.CanvasTexture(c);
+            tex.magFilter = THREE.LinearFilter;
+            tex.minFilter = THREE.LinearFilter;
+            return tex;
+        }
+
+        function makeGridTexture(){
+            const c = document.createElement('canvas');
+            c.width = 256; c.height = 256;
+            const g = c.getContext('2d');
+            g.fillStyle = '#07060f';
+            g.fillRect(0, 0, 256, 256);
+            g.strokeStyle = 'rgba(90,60,160,0.35)';
+            g.lineWidth = 2;
+            g.strokeRect(1, 1, 254, 254);
+            g.strokeStyle = 'rgba(60,140,200,0.16)';
+            g.lineWidth = 1;
+            for (let i = 0; i <= 256; i += 32){
+                g.beginPath(); g.moveTo(i, 0); g.lineTo(i, 256); g.stroke();
+                g.beginPath(); g.moveTo(0, i); g.lineTo(256, i); g.stroke();
+            }
+            const tex = new THREE.CanvasTexture(c);
+            tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+            tex.repeat.set(60, 60);
+            return tex;
+        }
+
         // Initialize
         function init() {
             // Scene Setup
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(CONFIG.colors.sky);
-            scene.fog = new THREE.FogExp2(CONFIG.colors.fog, 0.015);
+            scene.background = new THREE.Color(0x12061f);
+            scene.fog = new THREE.FogExp2(0x1a0d2e, 0.011);
+
+            // 渐变天空球
+            const skyGeo = new THREE.SphereGeometry(600, 32, 16);
+            const skyMat = new THREE.MeshBasicMaterial({
+                map: makeSkyTexture(), side: THREE.BackSide, depthWrite: false, fog: false
+            });
+            const skyDome = new THREE.Mesh(skyGeo, skyMat);
+            skyDome.name = 'skyDome';
+            scene.add(skyDome);
 
             // Camera
             camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -256,25 +342,42 @@
             // Renderer
             renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
             renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
             renderer.shadowMap.enabled = true;
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.15;
+            renderer.outputEncoding = THREE.sRGBEncoding;
             document.getElementById('canvas-container').appendChild(renderer.domElement);
 
-            // Lights
-            const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+            // Lights —— 三点布光：冷色环境 + 双色主光 + 地面反光
+            const ambientLight = new THREE.AmbientLight(0x8899cc, 0.75);
             scene.add(ambientLight);
 
-            const moonLight = new THREE.DirectionalLight(0x6666ff, 0.5);
-            moonLight.position.set(50, 100, 50);
+            const hemi = new THREE.HemisphereLight(0x8899ff, 0x2a0f3a, 1.1);
+            scene.add(hemi);
+
+            const moonLight = new THREE.DirectionalLight(0x9fb4ff, 1.5);
+            moonLight.position.set(70, 120, 60);
             moonLight.castShadow = true;
-            moonLight.shadow.camera.left = -100;
-            moonLight.shadow.camera.right = 100;
-            moonLight.shadow.camera.top = 100;
-            moonLight.shadow.camera.bottom = -100;
             moonLight.shadow.mapSize.width = 2048;
             moonLight.shadow.mapSize.height = 2048;
+            moonLight.shadow.camera.left = -160;
+            moonLight.shadow.camera.right = 160;
+            moonLight.shadow.camera.top = 160;
+            moonLight.shadow.camera.bottom = -160;
+            moonLight.shadow.camera.far = 500;
+            moonLight.shadow.bias = -0.0006;
             scene.add(moonLight);
+
+            // 品红色补光，给车和路沿描边
+            const rim = new THREE.DirectionalLight(0xff3d8b, 0.9);
+            rim.position.set(-80, 40, -70);
+            scene.add(rim);
+
+            const fill = new THREE.DirectionalLight(0x00e5ff, 0.55);
+            fill.position.set(40, 25, -90);
+            scene.add(fill);
 
             // Create Track
             createTrack();
@@ -310,6 +413,8 @@
             document.getElementById('start-btn').addEventListener('click', startGame);
 
             // Animation Loop
+            window.__scene = scene;
+            window.__track = track;
             animate();
         }
 
@@ -334,41 +439,100 @@
 
             trackPoints = curve.getPoints(200);
             
-            // Create track geometry
-            const trackShape = new THREE.Shape();
-            trackShape.moveTo(-8, 0);
-            trackShape.lineTo(8, 0);
-            
-            const trackGeometry = new THREE.ExtrudeGeometry(trackShape, {
-                steps: 200,
-                extrudePath: curve,
-                bevelEnabled: false
-            });
-            
-            // 修复：更亮的赛道材质
-            const trackMaterial = new THREE.MeshStandardMaterial({
-                color: 0x1a1a2e,        // 更亮的基色
-                roughness: 0.2,         // 更光滑（反射更多光）
-                metalness: 0.8,         // 更高金属度
-                emissive: 0x331144,     // 紫色发光基调
-                emissiveIntensity: 0.4,  // 增强发光
-            });
-            
-            track = new THREE.Mesh(trackGeometry, trackMaterial);
-            track.receiveShadow = true;
-            track.rotation.x = Math.PI / 2;
-            scene.add(track);
+            // —— 用曲线直接铺一条平整路面（原先 Extrude 生成的路面被立了起来，所以看不见） ——
+            const SEG = 280;
+            const HALF = 9.5;
+            const pathPts = curve.getPoints(SEG);
+            const cx = [], lOut = [], lIn = [], rIn = [], rOut = [];
 
-            // 修复：更粗更亮的边缘线
-            const edgesGeometry = new THREE.TubeGeometry(curve, 200, 0.4, 8, true); // 半径从0.2增加到0.4
-            const edgesMaterial = new THREE.MeshBasicMaterial({ 
-                color: 0x00ffff,
-                transparent: true,
-                opacity: 0.8
-            });
-            const edges = new THREE.Mesh(edgesGeometry, edgesMaterial);
-            edges.position.y = 0.1;
-            scene.add(edges);
+            for (let i = 0; i < pathPts.length; i++){
+                const t = curve.getTangentAt(Math.min(i / SEG, 0.999));
+                const nl = Math.hypot(t.x, t.z) || 1;
+                const ux = -t.z / nl, uz = t.x / nl;
+                const p = pathPts[i];
+                cx.push(new THREE.Vector3(p.x, 0, p.z));
+                lOut.push(new THREE.Vector3(p.x + ux * HALF, 0, p.z + uz * HALF));
+                lIn.push(new THREE.Vector3(p.x + ux * (HALF - 1.5), 0, p.z + uz * (HALF - 1.5)));
+                rIn.push(new THREE.Vector3(p.x - ux * (HALF - 1.5), 0, p.z - uz * (HALF - 1.5)));
+                rOut.push(new THREE.Vector3(p.x - ux * HALF, 0, p.z - uz * HALF));
+            }
+
+            function ribbon(aList, bList, y, color, opacity, emissive){
+                const pos = [];
+                for (let i = 0; i < aList.length - 1; i++){
+                    const a = aList[i], b = aList[i + 1], c = bList[i], d = bList[i + 1];
+                    pos.push(a.x, y, a.z, c.x, y, c.z, b.x, y, b.z);
+                    pos.push(b.x, y, b.z, c.x, y, c.z, d.x, y, d.z);
+                }
+                const geo = new THREE.BufferGeometry();
+                geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+                geo.computeVertexNormals();
+                let mat;
+                if (opacity != null){
+                    mat = new THREE.MeshBasicMaterial({
+                        color: color, transparent: true, opacity: opacity,
+                        side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false
+                    });
+                } else {
+                    mat = new THREE.MeshStandardMaterial({
+                        color: color, roughness: 0.55, metalness: 0.5,
+                        emissive: emissive || 0x000000, emissiveIntensity: 1.0, side: THREE.DoubleSide
+                    });
+                }
+                const mesh = new THREE.Mesh(geo, mat);
+                mesh.receiveShadow = true;
+                scene.add(mesh);
+                return mesh;
+            }
+
+            // 路面 + 两侧霓虹护栏
+            track = ribbon(lOut, rOut, 0.02, 0x241f36, null, 0x0f0720);
+            ribbon(lOut, lIn, 0.10, 0x00f0ff, 0.8);
+            ribbon(rOut, rIn, 0.10, 0xff2ea6, 0.8);
+
+            // 赛道拱门（提供纵深参照与节奏感）
+            for (let i = 14; i < pathPts.length - 8; i += 34){
+                const p = pathPts[i];
+                const tg = curve.getTangentAt(Math.min(i / SEG, 0.999));
+                const ang = Math.atan2(tg.x, tg.z);
+
+                const gate = new THREE.Group();
+                const pillarGeo = new THREE.BoxGeometry(0.9, 13, 0.9);
+
+                const matA = new THREE.MeshStandardMaterial({
+                    color: 0x140f26, emissive: 0x00eaff, emissiveIntensity: 1.1,
+                    metalness: 0.6, roughness: 0.35
+                });
+                const matB = new THREE.MeshStandardMaterial({
+                    color: 0x140f26, emissive: 0xff2ea6, emissiveIntensity: 1.1,
+                    metalness: 0.6, roughness: 0.35
+                });
+
+                const pl = new THREE.Mesh(pillarGeo, matA);
+                pl.position.set(-9.6, 6.5, 0);
+                const pr = new THREE.Mesh(pillarGeo, matB);
+                pr.position.set(9.6, 6.5, 0);
+
+                const beam = new THREE.Mesh(new THREE.BoxGeometry(20.4, 0.9, 0.9), matA.clone());
+                beam.material.emissive = new THREE.Color(0xffffff);
+                beam.material.emissiveIntensity = 1.4;
+                beam.position.set(0, 12.6, 0);
+
+                gate.add(pl, pr, beam);
+                gate.position.set(p.x, 0, p.z);
+                gate.rotation.y = ang;
+                scene.add(gate);
+            }
+
+            // 车道虚线
+            const dashPos = [];
+            for (let i = 0; i < cx.length - 1; i += 3){
+                const p0 = cx[i], p1 = cx[i + 1];
+                dashPos.push(p0.x, 0.12, p0.z, p1.x, 0.12, p1.z);
+            }
+            const dashGeo = new THREE.BufferGeometry();
+            dashGeo.setAttribute('position', new THREE.Float32BufferAttribute(dashPos, 3));
+            scene.add(new THREE.LineSegments(dashGeo, new THREE.LineBasicMaterial({ color: 0xffd6f2, transparent: true, opacity: 0.95 })));
 
             // 新增：赛道中心线（提高方向辨识度）
             const centerLineGeometry = new THREE.BufferGeometry();
@@ -401,12 +565,14 @@
             });
 
             // Ground plane (off-road)
-            const groundGeometry = new THREE.PlaneGeometry(1000, 1000, 100, 100);
+            const groundGeometry = new THREE.PlaneGeometry(1000, 1000, 1, 1);
             const groundMaterial = new THREE.MeshStandardMaterial({
-                color: 0x0a0a0a,
-                roughness: 0.9,
-                metalness: 0.1,
-                wireframe: false
+                map: makeGridTexture(),
+                color: 0x191530,
+                roughness: 0.85,
+                metalness: 0.25,
+                emissive: 0x070411,
+                emissiveIntensity: 0.4
             });
             
             ground = new THREE.Mesh(groundGeometry, groundMaterial);
@@ -546,6 +712,11 @@
             engineLight.position.set(0, 0.5, -1);
             car.add(engineLight);
 
+            // 车底霓虹投影
+            const underGlow = new THREE.PointLight(gameState.carColor, 2.5, 16);
+            underGlow.position.set(0, 0.15, 0);
+            car.add(underGlow);
+
             car.position.set(0, 0, 0);
             scene.add(car);
         }
@@ -568,19 +739,33 @@
                 const building = new THREE.Mesh(
                     buildingGeometry,
                     new THREE.MeshStandardMaterial({
-                        color: 0x111122,
-                        emissive: 0x000044,
-                        emissiveIntensity: 0.5,
+                        color: new THREE.Color().setHSL(0.68 + Math.random() * 0.16, 0.5, 0.10),
+                        emissive: new THREE.Color().setHSL(Math.random() < 0.5 ? 0.52 : 0.86, 0.95, 0.20),
+                        emissiveIntensity: 0.8,
                         transparent: true,
-                        opacity: 0.8
+                        opacity: 0.92
                     })
                 );
                 
-                // Position randomly around track
-                const angle = Math.random() * Math.PI * 2;
-                const radius = 80 + Math.random() * 100;
-                building.position.x = Math.cos(angle) * radius;
-                building.position.z = Math.sin(angle) * radius;
+                // Position randomly around track —— 避开路面（离最近赛道点至少 26 单位）
+                let px = 0, pz = 0;
+                for (let attempt = 0; attempt < 30; attempt++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const radius = 90 + Math.random() * 150;
+                    px = Math.cos(angle) * radius;
+                    pz = Math.sin(angle) * radius;
+
+                    let minD = Infinity;
+                    for (let ti = 0; ti < trackPoints.length; ti += 4) {
+                        const dx = trackPoints[ti].x - px;
+                        const dz = trackPoints[ti].z - pz;
+                        const d = Math.sqrt(dx * dx + dz * dz);
+                        if (d < minD) minD = d;
+                    }
+                    if (minD > 26) break;
+                }
+                building.position.x = px;
+                building.position.z = pz;
                 building.position.y = height / 2;
                 building.scale.set(
                     5 + Math.random() * 10,
@@ -811,12 +996,21 @@
             gameState.started = true;
             gameState.startTime = Date.now();
             
-            // Reset car position
-            car.position.set(0, 0, 0);
-            car.rotation.set(0, 0, 0);
+            // Reset car position —— 对齐赛道起点的方向
+            if (trackPoints.length > 1){
+                const p0 = trackPoints[0];
+                const p1 = trackPoints[1];
+                car.position.set(p0.x, 0, p0.z);
+                car.rotation.set(0, Math.atan2(p1.x - p0.x, p1.z - p0.z), 0);
+            } else {
+                car.position.set(0, 0, 0);
+                car.rotation.set(0, 0, 0);
+            }
             carVelocity.set(0, 0, 0);
             gameState.speed = 0;
             gameState.lap = 1;
+            gameState.nitro = 100;
+            gameState.boosting = false;
         }
 
         // 修复：完全重写的物理系统，包含正确的转向逻辑
@@ -846,6 +1040,21 @@
             // 应用摩擦
             const friction = speed > 0.1 ? CONFIG.friction : 1;
             carVelocity.multiplyScalar(friction);
+
+            // —— 氮气加速 ——
+            const boostKey = keys['ShiftLeft'] || keys['ShiftRight'];
+            const wantBoost = boostKey && gameState.nitro > 0.5 && acceleration > 0;
+            gameState.boosting = wantBoost;
+
+            if (wantBoost){
+                gameState.nitro = Math.max(0, gameState.nitro - 34 * delta);
+                const boostDir = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), car.rotation.y);
+                carVelocity.add(boostDir.multiplyScalar(CONFIG.acceleration * 1.25 * delta));
+                const boostCap = CONFIG.maxSpeed * 0.5;   // 氮气状态允许超过常规上限
+                if (carVelocity.length() > boostCap) carVelocity.setLength(boostCap);
+            } else {
+                gameState.nitro = Math.min(100, gameState.nitro + 6.5 * delta);
+            }
 
             // 修复：正确的转向物理系统
             if (speed > 1) {
@@ -919,9 +1128,11 @@
             if (!onTrack) {
                 carVelocity.multiplyScalar(CONFIG.offRoadFriction);
             }
+            gameState.offTrack = !onTrack;
 
-            // 更新游戏状态速度显示
-            gameState.speed = Math.min(speed * 10, CONFIG.maxSpeed);
+            // 更新游戏状态速度显示（氮气状态允许超出常规上限）
+            const displayCap = gameState.boosting ? CONFIG.maxSpeed * 1.45 : CONFIG.maxSpeed;
+            gameState.speed = Math.min(speed * 10, displayCap);
 
             // 相机跟随 - 更平滑的跟随
             const idealOffset = cameraOffset.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), car.rotation.y);
@@ -933,6 +1144,12 @@
             
             camera.position.lerp(car.position.clone().add(dynamicOffset), 0.1);
             camera.lookAt(car.position.clone().add(idealLookAt));
+
+            // 速度越快视野越广（速度感），氮气再加一档
+            const speedRatio = gameState.speed / CONFIG.maxSpeed;
+            const targetFov = 60 + speedRatio * 16 + (gameState.boosting ? 7 : 0);
+            camera.fov += (targetFov - camera.fov) * 0.06;
+            camera.updateProjectionMatrix();
 
             // 更新粒子
             updateParticles();
@@ -996,6 +1213,21 @@
         function updateUI() {
             // Speed
             document.getElementById('speed-display').textContent = Math.floor(gameState.speed);
+
+            // 速度线强度随车速
+            const sl = document.getElementById('speedlines');
+            if (sl){
+                const base = (gameState.speed / CONFIG.maxSpeed) * 0.55;
+                sl.style.opacity = Math.min(1, base + (gameState.boosting ? 0.35 : 0)).toFixed(2);
+            }
+
+            // 氮气条
+            const nb = document.getElementById('nitro-bar');
+            if (nb) nb.style.width = gameState.nitro.toFixed(0) + '%';
+
+            // 偏离赛道提示
+            const wt = document.getElementById('offtrack');
+            if (wt) wt.style.opacity = gameState.offTrack ? '1' : '0';
             const speedPercent = (gameState.speed / CONFIG.maxSpeed) * 100;
             document.getElementById('speed-bar').style.width = speedPercent + '%';
             
